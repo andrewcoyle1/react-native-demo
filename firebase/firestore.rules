@@ -1,9 +1,43 @@
 rules_version = '2';
 
-// Notes are private to the user who created them. The app reads and writes only
-// users/{uid}/notes, so nothing else is granted.
+// Everything under users/{uid} is private to that user: the profile document
+// itself and the notes subcollection. Nothing else is granted.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The profile document. Written by the user-provider feature; a missing
+    // document is a legitimate state ("absent"), not an error.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['name', 'dateOfBirth', 'sex', 'createdAt', 'modifiedAt'])
+        && request.resource.data.keys().hasAll(['name', 'dateOfBirth', 'sex', 'createdAt', 'modifiedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.dateOfBirth is timestamp
+        && request.resource.data.sex in ['male', 'female', 'other']
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.modifiedAt == request.time;
+
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        // createdAt is immutable; every other field stays optional so partial
+        // edits are a single write rather than a read-modify-write.
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'dateOfBirth', 'sex', 'modifiedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.dateOfBirth is timestamp
+        && request.resource.data.sex in ['male', 'female', 'other']
+        && request.resource.data.modifiedAt == request.time;
+
+      // Deleting a profile would orphan the notes beneath it.
+      allow delete: if false;
+    }
+
     match /users/{userId}/notes/{noteId} {
       allow read, delete: if request.auth != null && request.auth.uid == userId;
 

@@ -1,203 +1,202 @@
-import { router, Stack } from 'expo-router';
-import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, type TextInput } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { ActionButton } from '@/components/action-button';
-import { Card, Screen } from '@/components/screen';
+import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedTextInput } from '@/components/themed-text-input';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { SectionCard } from '@/components/section-card';
+import { StatTile } from '@/components/stat-tile';
+import { Accents, PlanAccent, Spacing, Zones } from '@/constants/theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
-import { useNotes, type Note } from '@/providers/notes-provider';
-import { reportError, trackEvent } from '@/services/telemetry';
+
+/**
+ * Placeholder figures until the metrics service lands, in the same arrangement
+ * as `sample-week`: the screen is about layout, the numbers arrive later.
+ */
+const GOALS = {
+  plannedTime: { value: '8', unit: 'hr', extra: '6', extraUnit: 'min' },
+  plannedDistance: { value: '110.9', unit: 'km' },
+  completedTime: { value: '4', unit: 'hr', extra: '28', extraUnit: 'min' },
+  completedDistance: { value: '52.1', unit: 'km' },
+};
 
 export default function TrendsScreen() {
   useScreenTracking('Trends');
 
-  const { state, add, remove } = useNotes();
-  const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const draftRef = useRef<TextInput>(null);
-
-  if (state.status === 'signedOut') {
-    return (
-      <Screen title="Plan" subtitle="Free trial">
-        <Card>
-          <ThemedText type="small" themeColor="textSecondary">
-            Sign in on the Account tab to read and write notes. Each user only sees
-            documents under `users/{'{uid}'}/notes`.
-          </ThemedText>
-        </Card>
-      </Screen>
-    );
-  }
-
-  async function handleAdd() {
-    const text = draft.trim();
-    if (!text) {
-      return;
-    }
-
-    setSaving(true);
-    setActionError(null);
-    try {
-      await add(text);
-      setDraft('');
-      trackEvent('note_added', { length: text.length });
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : 'Could not save the note.');
-      reportError(caught, 'notes: add');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete(noteId: string) {
-    setActionError(null);
-    try {
-      await remove(noteId);
-      trackEvent('note_deleted');
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : 'Could not delete the note.');
-      reportError(caught, 'notes: remove');
-    }
-  }
-
   return (
-    <Screen title="Plan" subtitle="Free trial">
-          <Stack.Toolbar placement="right">
-            {/* Items sit horizontally in the header's trailing area, in source order. */}
-            <Stack.Toolbar.Button icon="questionmark.bubble" onPress={() => router.push('/modal')} />
-            <Stack.Toolbar.Button
-              icon="bell"
-              onPress={() => router.push('/sheet')}
+    <Screen>
+
+      <SectionCard title="Training Goals" icon="chart.line.uptrend.xyaxis" iconAccent={PlanAccent}>
+        {/* Planned and completed sit side by side so the shortfall is read as a
+            comparison rather than as two separate figures. */}
+        <View style={styles.columns}>
+          <View style={styles.column}>
+            <GoalFigures
+              label="Planned"
+              time={GOALS.plannedTime}
+              distance={GOALS.plannedDistance}
             />
-            <Stack.Toolbar.Button
-              icon="person.crop.circle"
-              onPress={() => router.push('/account')}
+          </View>
+          <View style={styles.column}>
+            <GoalFigures
+              label="Completed"
+              time={GOALS.completedTime}
+              distance={GOALS.completedDistance}
+              accent={PlanAccent}
             />
+          </View>
+        </View>
+      </SectionCard>
 
-          </Stack.Toolbar>
+      <SectionCard
+        title="Fitness, Fatigue & Form"
+        icon="heart.text.square"
+        iconAccent={PlanAccent}
+        badge="Optimal"
+        badgeAccent={PlanAccent}>
+        <View style={styles.columns}>
+          <View style={styles.column}>
+            <StatTile
+              centred
+              icon="battery.25"
+              label="Fatigue"
+              value="68"
+              accent={Accents.speed}
+              trend="up"
+            />
+          </View>
+          <View style={styles.column}>
+            <StatTile
+              centred
+              icon="heart"
+              label="Fitness"
+              value="38"
+              accent={PlanAccent}
+              trend="up"
+            />
+          </View>
+          <View style={styles.column}>
+            <StatTile
+              centred
+              icon="paperplane"
+              label="Form"
+              value="-30"
+              accent={Accents.recovery}
+              trend="down"
+            />
+          </View>
+        </View>
+      </SectionCard>
 
-      <Card title="New note">
-        <ThemedTextInput
-          ref={draftRef}
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Write something…"
-          multiline
-          style={styles.draftInput}
-          onSubmitEditing={handleAdd}
-        />
-        <ActionButton title="Add note" busy={saving} disabled={!draft.trim()} onPress={handleAdd} />
-      </Card>
-
-      {actionError ? <ErrorText message={actionError} /> : null}
-
-      <NotesBody state={state} onDelete={handleDelete} />
+      <SectionCard title="Run Threshold & VO2 Max" icon="figure.run" iconAccent={Zones.hard}>
+        <View style={styles.columns}>
+          <View style={styles.column}>
+            <StatTile
+              centred
+              icon="speedometer"
+              label="VO2Max"
+              value="53.4"
+              accent={Accents.schedule}
+              trend="flat"
+            />
+          </View>
+          <View style={styles.column}>
+            <StatTile
+              centred
+              icon="gauge.with.dots.needle.bottom.50percent"
+              label="Threshold pace"
+              value="4:31"
+              unit="/km"
+              accent={Zones.hard}
+              trend="up"
+            />
+          </View>
+        </View>
+      </SectionCard>
     </Screen>
   );
 }
 
+type Figure = { value: string; unit: string; extra?: string; extraUnit?: string };
+
 /**
- * Renders whichever state the list is in. The union means there is no way to
- * reach a combination the UI has not accounted for — the compiler checks it.
+ * A goal's two lines — time then distance — sharing one label.
+ *
+ * Written out rather than reusing `StatTile` because the pair share a heading
+ * and the time carries two units, which the tile's single value/unit cannot
+ * hold. Units are nested inside the figure so they stay on its baseline.
  */
-function NotesBody({
-  state,
-  onDelete,
+function GoalFigures({
+  label,
+  time,
+  distance,
+  accent,
 }: {
-  state: Exclude<ReturnType<typeof useNotes>['state'], { status: 'signedOut' }>;
-  onDelete: (noteId: string) => void;
+  label: string;
+  time: Figure;
+  distance: Figure;
+  accent?: string;
 }) {
-  switch (state.status) {
-    case 'loading':
-      return <ActivityIndicator style={styles.loading} />;
+  const figureStyle = [styles.figure, accent ? { color: accent } : styles.figureMuted];
 
-    case 'error':
-      return <ErrorText message={state.message} />;
-
-    case 'ready':
-      if (state.notes.length === 0) {
-        return (
-          <Card>
-            <ThemedText type="small" themeColor="textSecondary">
-              No notes yet. Add one above and it will appear here without a refresh —
-              the live listener pushes the change.
-            </ThemedText>
-          </Card>
-        );
-      }
-      return (
-        <Card title={`${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`}>
-          {state.notes.map(note => (
-            <NoteRow key={note.id} note={note} onDelete={() => onDelete(note.id)} />
-          ))}
-        </Card>
-      );
-  }
-}
-
-function ErrorText({ message }: { message: string }) {
   return (
-    <ThemedText type="small" style={styles.error} accessibilityRole="alert">
-      {message}
-    </ThemedText>
-  );
-}
+    <View style={styles.goal}>
+      <ThemedText themeColor="textSecondary" style={styles.goalLabel}>
+        {label.toUpperCase()}
+      </ThemedText>
 
-function NoteRow({ note, onDelete }: { note: Note; onDelete: () => void }) {
-  return (
-    <ThemedView type="backgroundSelected" style={styles.noteRow}>
-      <ThemedView type="backgroundSelected" style={styles.noteBody}>
-        <ThemedText>{note.text}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {note.createdAt ? note.createdAt.toLocaleString() : 'Saving…'}
+      <ThemedText style={figureStyle}>
+        {time.value}
+        <ThemedText themeColor="textSecondary" style={styles.unit}>
+          {' '}
+          {time.unit.toUpperCase()}
         </ThemedText>
-      </ThemedView>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Delete note: ${note.text}`}
-        hitSlop={Spacing.two}
-        onPress={onDelete}
-        style={({ pressed }) => pressed && styles.pressed}>
-        <ThemedText type="smallBold" style={styles.deleteLabel}>
-          Delete
+        {time.extra ? ` ${time.extra}` : null}
+        {time.extraUnit ? (
+          <ThemedText themeColor="textSecondary" style={styles.unit}>
+            {' '}
+            {time.extraUnit.toUpperCase()}
+          </ThemedText>
+        ) : null}
+      </ThemedText>
+
+      <ThemedText style={figureStyle}>
+        {distance.value}
+        <ThemedText themeColor="textSecondary" style={styles.unit}>
+          {' '}
+          {distance.unit.toUpperCase()}
         </ThemedText>
-      </Pressable>
-    </ThemedView>
+      </ThemedText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  draftInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  loading: {
-    paddingVertical: Spacing.four,
-  },
-  noteRow: {
+  columns: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
   },
-  noteBody: {
-    flexShrink: 1,
-    gap: Spacing.half,
+  column: {
+    /* Equal halves, so the two goals line up figure for figure. */
+    flex: 1,
   },
-  deleteLabel: {
-    color: '#e5484d',
+  goal: {
+    gap: Spacing.one,
   },
-  pressed: {
-    opacity: 0.7,
+  goalLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: 0.6,
+    marginBottom: Spacing.one,
   },
-  error: {
-    color: '#e5484d',
+  unit: {
+    fontSize: 13,
+    fontWeight: 500,
+  },
+  figure: {
+    fontSize: 30,
+    /* As above: the default 24pt line height would clip these digits. */
+    lineHeight: 36,
+    fontWeight: 400,
+  },
+  figureMuted: {
+    opacity: 0.55,
   },
 });

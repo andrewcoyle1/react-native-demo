@@ -15,11 +15,17 @@ export const Colors = {
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
   },
+  /*
+   * Sampled from the design: the page is #101010 rather than pure black, cards
+   * sit one step above it at #171717, and #262626 is both the card hairline and
+   * the selected/inactive tone. The three are close on purpose — the separation
+   * comes from the border, not from a lighter slab.
+   */
   dark: {
     text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
+    background: '#101010',
+    backgroundElement: '#171717',
+    backgroundSelected: '#262626',
     textSecondary: '#B0B4BA',
   },
 } as const;
@@ -53,6 +59,55 @@ export const Fonts = Platform.select({
 
 /** Plan accent. Fixed rather than themed: it is only ever used on artwork. */
 export const PlanAccent = '#9BE87F';
+
+/**
+ * Accents that carry meaning rather than mood: a workout's discipline tags, the
+ * equipment it needs, its completion state. Fixed rather than themed — these
+ * are the same colour in both appearances so a "needs equipment" chip never
+ * reads as something else after dark.
+ */
+export const Accents = {
+  /** Technique and focus tags. */
+  info: '#5AA9E6',
+  /** Equipment the session needs you to bring. */
+  equipment: '#D4A72C',
+  /** Completed, on track. */
+  success: PlanAccent,
+  /** Scheduling and calendar affordances. */
+  schedule: '#8B7CF6',
+  /** Interval bars on the session chart. */
+  interval: '#2F9BE0',
+  /** Session purpose, one per kind. These label the workout, not its effort. */
+  recovery: '#4A90E2',
+  endurance: '#3FB984',
+  speed: '#E5484D',
+  commitment: '#6C5CE7',
+} as const;
+
+/**
+ * Effort colours for the session chart. A workout is read by its shape and its
+ * colour together, so these are named for what the athlete is doing rather than
+ * for the hue — a "hard" block stays hard whichever discipline draws it.
+ */
+export const Zones = {
+  /** Warm-up and cool-down: long, low, unhurried. */
+  warmup: '#7A97AA',
+  /** Easy aerobic work. */
+  easy: '#E3B778',
+  /** Hard running efforts. */
+  hard: '#E8763C',
+  /** Swim main sets. */
+  swim: '#4FA3DC',
+  /** Ride main sets. */
+  ride: '#C77BAE',
+  /** Short maximal efforts — strides, sprints. */
+  sprint: '#E5484D',
+  /** Drills, marked with hatching as well as colour. */
+  drill: '#8B7CF6',
+} as const;
+
+/** Chip and tile fills. Kept low so the accent reads as an outline, not a slab. */
+export const AccentFillOpacity = '22';
 
 export const Spacing = {
   half: 2,

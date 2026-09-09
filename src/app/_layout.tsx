@@ -15,6 +15,7 @@ import { useColorScheme } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { NotesProvider } from '@/providers/notes-provider';
+import { UserProvider } from '@/providers/user-provider';
 import { services } from '@/services/container';
 
 // Runs once on import, before any component renders. Keeps the native splash on
@@ -27,9 +28,12 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider service={services.auth}>
-        <NotesProvider service={services.notes}>
-          <RootNavigator />
-        </NotesProvider>
+        {/* Below AuthProvider: both read the signed-in uid from it. */}
+        <UserProvider service={services.user}>
+          <NotesProvider service={services.notes}>
+            <RootNavigator />
+          </NotesProvider>
+        </UserProvider>
       </AuthProvider>
     </ThemeProvider>
   );
@@ -67,6 +71,40 @@ function RootNavigator() {
             to the default, so neither direction is accidental. */}
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(main)" options={{ animationTypeForReplace: 'push' }} />
+
+          {/* Feedback and notifications live here, above the tabs, so they can
+              float over whichever tab is showing. Profile is deliberately not
+              here: it is a tab screen, so that opening it wipes like the rest
+              rather than sliding in over the top. */}
+
+          {/* A custom alert. `transparentModal` keeps the screen underneath
+              mounted and visible, and a transparent contentStyle lets the
+              backdrop show through — without it the screen paints an opaque
+              background and the overlay looks like a full cover. `fade`
+              replaces the slide-up. */}
+          <Stack.Screen
+            name="modal"
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+
+          {/* The SwiftUI `.sheet` equivalent: a form sheet that rests at
+              detents. `sheetAllowedDetents` is this API's
+              `.presentationDetents`. */}
+          <Stack.Screen
+            name="sheet"
+            options={{
+              presentation: 'formSheet',
+              headerShown: true,
+              title: 'Sheet',
+              sheetAllowedDetents: [0.4, 0.9],
+              sheetGrabberVisible: true,
+            }}
+          />
         </Stack.Protected>
 
         <Stack.Protected guard={!user}>

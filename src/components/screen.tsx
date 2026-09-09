@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { Platform, ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useScreenPadding } from '@/hooks/use-screen-padding';
 import { useTheme } from '@/hooks/use-theme';
 
 type ScreenProps = {
@@ -21,26 +21,7 @@ type ScreenProps = {
 /** Scrollable screen shell with a title block and tab-bar-aware insets. */
 export function Screen({ title, subtitle, children }: ScreenProps) {
   const theme = useTheme();
-  const safeAreaInsets = useSafeAreaInsets();
-
-  const contentPlatformStyle = Platform.select({
-    /*
-     * No safe-area maths here: `contentInsetAdjustmentBehavior` below already
-     * clears the header. This is just the gap between the header and the first
-     * row of content.
-     */
-    ios: {
-      paddingTop: Spacing.four,
-    },
-    android: {
-      paddingTop: safeAreaInsets.top + Spacing.four,
-      paddingBottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const contentPlatformStyle = useScreenPadding();
 
   return (
     <ScrollView
@@ -82,8 +63,12 @@ type CardProps = {
 
 /** Grouped block of related controls or values. */
 export function Card({ title, children, style }: CardProps) {
+  const theme = useTheme();
+
   return (
-    <ThemedView type="backgroundElement" style={[styles.card, style]}>
+    <ThemedView
+      type="backgroundElement"
+      style={[styles.card, { borderColor: theme.backgroundSelected }, style]}>
       {title ? (
         <ThemedText type="smallBold" themeColor="textSecondary" style={styles.cardTitle}>
           {title.toUpperCase()}
@@ -120,7 +105,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
+    /* 16pt, measured off the design: cards sit that far from the screen edge.
+       Matches the dashboard's own gutter, which is set on its list rows. */
+    paddingHorizontal: Spacing.three,
   },
   container: {
     width: '100%',
@@ -133,6 +120,9 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.three,
     padding: Spacing.four,
+    /* Cards are separated from the page by this hairline, not by a lighter
+       fill — the two surfaces sit one step apart on purpose. */
+    borderWidth: 1,
     borderRadius: Spacing.four,
   },
   cardTitle: {

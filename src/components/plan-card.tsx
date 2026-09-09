@@ -8,7 +8,8 @@
 import type { ReactNode } from 'react';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image, type ImageProps } from 'expo-image';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PlanChart } from './plan-chart';
 import { ThemedText } from './themed-text';
@@ -41,6 +42,8 @@ type PlanCardProps = {
   currentBarProgress?: number;
   /** Tallest bar's height in points. */
   chartHeight?: number;
+  /** Adds the overflow button in the card's top-right corner. */
+  onMenuPress?: () => void;
   children?: ReactNode;
   /** Layout overrides for the card box itself — height, flex, margins. */
   style?: StyleProp<ViewStyle>;
@@ -57,6 +60,7 @@ export function PlanCard({
   currentBarIndex,
   currentBarProgress,
   chartHeight = 70,
+  onMenuPress,
   children,
   style,
 }: PlanCardProps) {
@@ -88,6 +92,25 @@ export function PlanCard({
           <ThemedView style={styles.scrim} />
         </>
       ) : null}
+      {/* Absolutely positioned so it sits in the corner without taking a slot in
+          the column — the titles lay out as if it were not there. */}
+      {onMenuPress ? (
+        <Pressable
+          onPress={onMenuPress}
+          accessibilityRole="button"
+          accessibilityLabel="Plan options"
+          hitSlop={Spacing.two}
+          style={({ pressed }) => [styles.menu, pressed && styles.menuPressed]}>
+          <GlassView
+            glassEffectStyle="regular"
+            colorScheme="dark"
+            tintColor="rgba(0, 0, 0, 0.45)"
+            style={[styles.menuGlass, !glassAvailable && styles.capsuleFallback]}>
+            <SymbolView name="ellipsis" size={18} tintColor="#FFFFFF" />
+          </GlassView>
+        </Pressable>
+      ) : null}
+
       {/* Each title is written out rather than mapped, so it can carry its own
           size and weight. Each guards itself: a title that was not passed
           renders nothing instead of an empty line. */}
@@ -123,9 +146,11 @@ export function PlanCard({
         {/* A plain View, not ThemedView: ThemedView with no `type` paints the
             `background` token, which was covering the artwork with a white box. */}
         <View style={styles.row}>
+          {/* Not uppercased, unlike the labels around it: this is the card's
+              headline number, and "305 DAYS" shouts where "305 days" reads. */}
           {title2 ? (
             <ThemedText style={[styles.title2, onImage && styles.textOnImage]}>
-              {title2.toUpperCase()}
+              {title2}
             </ThemedText>
           ) : null}
           {title3 ? (
@@ -236,6 +261,26 @@ const styles = StyleSheet.create({
   capsuleFallback: {
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
+  menu: {
+    position: 'absolute',
+    /* Measured from the card's outer edge, not its padding box, so this insets
+       the button from the artwork rather than from the text column. */
+    top: Spacing.three,
+    right: Spacing.three,
+    /* Above the artwork and the scrim, both of which paint earlier. */
+    zIndex: 1,
+  },
+  menuPressed: {
+    opacity: 0.6,
+  },
+  menuGlass: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   heading: {
     /* Tighter than the card's own gap, so these lines read as one block. */
     gap: Spacing.one,
@@ -256,10 +301,14 @@ const styles = StyleSheet.create({
     fontSize: 12
   },
   title2: {
-      fontSize: 18,
+    fontSize: 26,
+    fontWeight: 700,
   },
   title3: {
-    fontSize: 12
+    fontSize: 14,
+    /* Lets the subtitle give way to the headline number beside it rather than
+       running off the card's edge. */
+    flexShrink: 1,
   },
   title4: {
     fontSize: 12
