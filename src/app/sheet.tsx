@@ -5,8 +5,8 @@ import { Card, Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 
-export default function DashboardSheet() {
-  useScreenTracking('Dashboard sheet');
+export default function SheetScreen() {
+  useScreenTracking('Sheet');
 
   return (
     <Screen subtitle="Presented with presentation: 'formSheet'.">
