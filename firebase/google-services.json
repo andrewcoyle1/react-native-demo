@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "888723486409",
+    "project_id": "reactnativeproject-9cb86",
+    "storage_bucket": "reactnativeproject-9cb86.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:888723486409:android:101809e62d3622d8e63f18",
+        "android_client_info": {
+          "package_name": "com.andrewcoyle.firebaseexpoapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "888723486409-ldb4fn81qikblgihvut6uiik88j8omf1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.andrewcoyle.firebaseexpoapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "888723486409-69fi7trnnq6v78alf8qtrv0f4crh7skg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_3MZIIYhA7YfBh9Qxva9NV6p3TCWpz-o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "888723486409-69fi7trnnq6v78alf8qtrv0f4crh7skg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "888723486409-9o7pl82pl2gv954dv003ilejolpta88n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.andrewcoyle.firebaseexpoapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
