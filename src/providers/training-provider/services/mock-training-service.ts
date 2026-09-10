@@ -6,7 +6,7 @@
  * fixture: the race has a fixed date and "305 days" is derived from it, so the
  * number is right tomorrow as well as today.
  *
- * `mock-anonymous` gets nothing, so the no-plan branch is reachable.
+ * `new@example.com` gets nothing, so the no-plan branch is reachable.
  */
 import type {
   PlanModel,
@@ -16,8 +16,9 @@ import type {
   TrainingService,
 } from './training-service';
 
+import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
+
 const SettleMs = 150;
-const ANONYMOUS_UID = 'mock-anonymous';
 
 function settle<T>(work: () => T): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(work()), SettleMs));
@@ -94,7 +95,7 @@ const schedules = new Map<string, ScheduleModel | null>();
 
 function scheduleFor(uid: string): ScheduleModel | null {
   if (!schedules.has(uid)) {
-    schedules.set(uid, uid === ANONYMOUS_UID ? null : { ...SCHEDULE });
+    schedules.set(uid, uid === MOCK_EMPTY_UID ? null : { ...SCHEDULE });
   }
   return schedules.get(uid) ?? null;
 }
@@ -110,11 +111,11 @@ function deferred(deliver: () => void) {
 
 export const mockTrainingService: TrainingService = {
   subscribePlans(uid, onPlans, _onError) {
-    return deferred(() => onPlans(uid === ANONYMOUS_UID ? [] : PLANS));
+    return deferred(() => onPlans(uid === MOCK_EMPTY_UID ? [] : PLANS));
   },
 
   subscribeRaces(uid, onRaces, _onError) {
-    return deferred(() => onRaces(uid === ANONYMOUS_UID ? [] : RACES));
+    return deferred(() => onRaces(uid === MOCK_EMPTY_UID ? [] : RACES));
   },
 
   subscribeSchedule(uid, onSchedule, _onError) {

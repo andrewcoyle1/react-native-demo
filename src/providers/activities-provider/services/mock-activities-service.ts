@@ -11,8 +11,9 @@ import type { ActivitiesService, ActivityModel, RoutePointModel } from './activi
 import { toDateKey, type ActivitySource, type Discipline } from '@/domain/training';
 import type { Page } from '@/providers/shared/paged-state';
 
+import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
+
 const SettleMs = 150;
-const ANONYMOUS_UID = 'mock-anonymous';
 
 /** Weeks of generated history behind the two hand-written ones. */
 const GeneratedWeeks = 4;
@@ -196,7 +197,7 @@ function storeFor(uid: string): ActivityModel[] {
   if (existing) {
     return existing;
   }
-  const seeded = uid === ANONYMOUS_UID ? [] : buildHistory();
+  const seeded = uid === MOCK_EMPTY_UID ? [] : buildHistory();
   stores.set(uid, seeded);
   return seeded;
 }

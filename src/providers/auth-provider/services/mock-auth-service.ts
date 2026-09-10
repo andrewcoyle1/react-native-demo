@@ -1,13 +1,17 @@
 /**
  * In-memory `AuthService` for the mock environment.
  *
- * Accepts any credentials so you can explore the app without a Firebase account.
- * Signing in as `fail@example.com` raises an `AuthError` instead, so the error
- * path stays exercisable.
+ * Accepts any credentials so you can explore the app without a backend. Two
+ * emails are reserved, and both exist so a branch that is otherwise unreachable
+ * without a server can be reached: `fail@example.com` raises an `AuthError`,
+ * and `new@example.com` signs in to an account with no data at all.
  */
 import { AuthError, type AuthService, type AuthUser } from './auth-service';
 
-const FAILING_EMAIL = 'fail@example.com';
+import {
+  MOCK_FAILING_EMAIL,
+  mockUidFor,
+} from '@/providers/shared/mock-accounts';
 
 let currentUser: AuthUser | null = null;
 const listeners = new Set<(user: AuthUser | null) => void>();
@@ -23,10 +27,12 @@ function setUser(user: AuthUser | null) {
 
 function userFor(email: string): AuthUser {
   return {
-    uid: `mock-${email.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+    uid: mockUidFor(email),
     email,
-    isAnonymous: false,
     emailVerified: true,
+    // Everything in mock mode signs in by email; Apple and Google arrive with
+    // the API implementation, which is what will actually be able to do them.
+    providers: ['email'],
   };
 }
 
@@ -53,7 +59,7 @@ export const mockAuthService: AuthService = {
   },
 
   async signIn(email) {
-    if (email.trim().toLowerCase() === FAILING_EMAIL) {
+    if (email.trim().toLowerCase() === MOCK_FAILING_EMAIL) {
       await settle(() => {});
       throw new AuthError('auth/invalid-credential', 'Email or password is incorrect.');
     }
@@ -62,17 +68,6 @@ export const mockAuthService: AuthService = {
 
   signUp(email) {
     return settle(() => setUser(userFor(email.trim())));
-  },
-
-  signInAnonymously() {
-    return settle(() =>
-      setUser({
-        uid: 'mock-anonymous',
-        email: null,
-        isAnonymous: true,
-        emailVerified: false,
-      }),
-    );
   },
 
   signOut() {

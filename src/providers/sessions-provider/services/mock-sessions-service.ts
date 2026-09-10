@@ -7,17 +7,18 @@
  * `paceSecondsPerKm: 1070`. Rendering the mock therefore proves the whole chain
  * — converter, provider, presenter — reproduces the design it started as.
  *
- * `mock-anonymous`, the uid `mockAuthService` gives anonymous sign-in, is seeded
- * with nothing, so every empty branch is reachable without a backend.
+ * Signing in as `new@example.com` seeds nothing, so every empty branch is
+ * reachable without a backend.
  */
 import type { SegmentModel, SessionModel, SessionsService } from './sessions-service';
 
 import { addDays, toDateKey, type DateKey, type Zone } from '@/domain/training';
 
+import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
+
 /** Matches the other mocks: long enough that loading states are real. */
 const SettleMs = 150;
 
-const ANONYMOUS_UID = 'mock-anonymous';
 
 function settle<T>(work: () => T): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(work()), SettleMs));
@@ -364,7 +365,7 @@ function storeFor(uid: string): SessionModel[] {
   // Two weeks, so both windows are fully covered: the Plan tab's Monday-to-Sunday
   // week, and the dashboard's seven days from today, which run into next week.
   const seeded =
-    uid === ANONYMOUS_UID
+    uid === MOCK_EMPTY_UID
       ? []
       : [0, 7].flatMap(offset =>
           WEEK.map(template =>

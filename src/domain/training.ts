@@ -55,10 +55,16 @@ export function toDateKey(date: Date): DateKey {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** The local midnight a date key names. */
+/**
+ * The local midnight a date key names.
+ *
+ * Indexed rather than destructured: a malformed key yields fewer parts than
+ * expected, and `Number(undefined)` is NaN, which makes an Invalid Date — a
+ * visible failure rather than a silently wrong day.
+ */
 export function fromDateKey(key: DateKey): Date {
-  const [year, month, day] = key.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  const parts = key.split('-');
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
 }
 
 /** `dateKey` shifted by whole days, staying in local time. */

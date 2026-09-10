@@ -1,0 +1,4 @@
+{
+  "//": "Marks this folder as ES modules for Node and for TypeScript's nodenext resolution. The app's own package.json has no \"type\" (its babel/metro/eslint configs are CommonJS), so without this the server would see these shared files as CJS. No name or main: this is not a package, only a module-type marker.",
+  "type": "module"
+}

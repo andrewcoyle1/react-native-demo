@@ -11,12 +11,12 @@ import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { AuthError, useAuth } from '@/providers/auth-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
 
-type PendingAction = 'signIn' | 'signUp' | 'anonymous' | null;
+type PendingAction = 'signIn' | 'signUp' | null;
 
 export default function SignInScreen() {
   useScreenTracking('Sign in');
 
-  const { signIn, signUp, signInAnonymously } = useAuth();
+  const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState<PendingAction>(null);
@@ -81,20 +81,6 @@ export default function SignInScreen() {
             onPress={() => run('signUp', () => signUp(email.trim(), password))}
           />
         </ThemedView>
-      </Card>
-
-      <Card title="No account">
-        <ThemedText type="small" themeColor="textSecondary">
-          Anonymous sign-in creates a throwaway user so you can try Firestore without
-          registering. Enable it under Authentication → Sign-in method in the Firebase
-          console.
-        </ThemedText>
-        <ActionButton
-          title="Continue anonymously"
-          variant="secondary"
-          busy={pending === 'anonymous'}
-          onPress={() => run('anonymous', signInAnonymously)}
-        />
       </Card>
 
       {error ? (

@@ -9,7 +9,7 @@
  * Split into a value and a unit throughout, because the cards render the two at
  * different sizes: `WorkoutMetric` and the activity row both take them apart.
  */
-import type { Discipline, UnitSystem } from './training';
+import type { Discipline, UnitSystem } from './training.ts';
 
 /** A number and its unit, as the cards want them. */
 export type Measure = { value: string; unit: string };

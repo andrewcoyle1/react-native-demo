@@ -7,13 +7,30 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
-  signInAnonymously as firebaseSignInAnonymously,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
 } from '@react-native-firebase/auth';
 
 import { AuthError, type AuthService, type AuthUser } from './auth-service';
+
+import { AUTH_PROVIDERS, type AuthProvider } from '@/domain/auth';
+
+/** Firebase names its providers differently from the domain. */
+const PROVIDER_IDS: Record<string, AuthProvider> = {
+  password: 'email',
+  'apple.com': 'apple',
+  'google.com': 'google',
+};
+
+/** Anything Firebase reports that the domain has no name for is dropped. */
+function toProviders(user: User): AuthProvider[] {
+  const mapped = user.providerData
+    .map(entry => PROVIDER_IDS[entry.providerId])
+    .filter((provider): provider is AuthProvider => provider !== undefined);
+
+  return AUTH_PROVIDERS.filter(provider => mapped.includes(provider));
+}
 
 function toAuthUser(user: User | null): AuthUser | null {
   if (!user) {
@@ -22,8 +39,8 @@ function toAuthUser(user: User | null): AuthUser | null {
   return {
     uid: user.uid,
     email: user.email,
-    isAnonymous: user.isAnonymous,
     emailVerified: user.emailVerified,
+    providers: toProviders(user),
   };
 }
 
@@ -66,7 +83,6 @@ export const firebaseAuthService: AuthService = {
 
   signUp: (email, password) => run(() => createUserWithEmailAndPassword(getAuth(), email, password)),
 
-  signInAnonymously: () => run(() => firebaseSignInAnonymously(getAuth())),
 
   signOut: () => run(() => firebaseSignOut(getAuth())),
 };
