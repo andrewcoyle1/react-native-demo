@@ -13,6 +13,7 @@ import { profileRoutes } from './profile/routes.ts';
 import { activityRoutes } from './activities/routes.ts';
 import { sessionRoutes } from './sessions/routes.ts';
 import { trainingRoutes } from './training/routes.ts';
+import { trendRoutes } from './trends/routes.ts';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -86,6 +87,7 @@ export function buildApp(): FastifyInstance {
   app.register(trainingRoutes);
   app.register(sessionRoutes);
   app.register(activityRoutes);
+  app.register(trendRoutes);
 
   return app;
 }

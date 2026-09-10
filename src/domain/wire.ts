@@ -335,3 +335,39 @@ export type ResetEvent = { reason: 'cursor_too_old' | 'account_changed' };
  * meaning only "the next page".
  */
 export const CHANGE_CURSOR_HEADER = 'X-Change-Cursor';
+
+// ─── Trends ──────────────────────────────────────────────────────────────────
+
+/** Which way a figure has moved over the window. */
+export type TrendDirection = 'up' | 'down' | 'flat';
+
+export type TrendFigureDTO = {
+  value: number;
+  direction: TrendDirection;
+  /** Change across the window, in the figure's own units. */
+  change: number;
+};
+
+export type VolumeDTO = {
+  durationSeconds: number;
+  distanceMetres: number;
+};
+
+/**
+ * Aggregates over a span of days — the one screen that asks the database a
+ * question rather than for a list of rows.
+ *
+ * `fitness` and `fatigue` are exponentially weighted averages of daily
+ * training load, over 42 and 7 days. `form` is their difference: it climbs
+ * during a taper, when fatigue falls away faster than fitness does, and goes
+ * negative in a hard block.
+ */
+export type TrendsDTO = {
+  from: DayKey;
+  to: DayKey;
+  planned: VolumeDTO;
+  completed: VolumeDTO;
+  fitness: TrendFigureDTO;
+  fatigue: TrendFigureDTO;
+  form: TrendFigureDTO;
+};

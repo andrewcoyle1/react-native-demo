@@ -264,6 +264,8 @@ type SeedActivity = {
   paceSecondsPerKm?: number;
   heartRate?: number;
   calories?: number;
+  /** 0-10, the same scale a session's planned load uses. */
+  load?: number;
 };
 
 /** A week's worth of recorded work, repeated backwards to build a history. */
@@ -271,30 +273,30 @@ const RECORDED: SeedActivity[] = [
   {
     hour: 13, minute: 57, title: 'Stamina: 6 × 2 min Fast Intervals', discipline: 'run',
     place: 'Dublin, IE', route: RUN_ROUTE,
-    distanceMetres: 5900, durationSeconds: 1983, paceSecondsPerKm: 336,
+    distanceMetres: 5900, durationSeconds: 1983, paceSecondsPerKm: 336, load: 6.9,
   },
   {
     hour: 11, minute: 51, title: 'Stamina: Chest Pressure Cooker', discipline: 'swim',
-    distanceMetres: 2700, durationSeconds: 5445, paceSecondsPerKm: 1390,
+    distanceMetres: 2700, durationSeconds: 5445, paceSecondsPerKm: 1390, load: 6.2,
   },
   {
     hour: 12, minute: 55, title: 'Lunch Ride', discipline: 'ride',
     place: 'Stapolin, Baldoyle', route: RIDE_ROUTE,
-    distanceMetres: 19000, durationSeconds: 2781, paceSecondsPerKm: 146,
+    distanceMetres: 19000, durationSeconds: 2781, paceSecondsPerKm: 146, load: 2.4,
   },
   {
     hour: 10, minute: 47, title: 'Lower', discipline: 'weights',
-    durationSeconds: 3870, heartRate: 100, calories: 345,
+    durationSeconds: 3870, heartRate: 100, calories: 345, load: 1.8,
   },
   {
     hour: 9, minute: 34, title: 'Stamina: 45 min Easy Ride', discipline: 'ride',
     place: 'Stapolin, Baldoyle', route: RIDE_ROUTE,
-    distanceMetres: 19000, durationSeconds: 2736, paceSecondsPerKm: 144,
+    distanceMetres: 19000, durationSeconds: 2736, paceSecondsPerKm: 144, load: 1.2,
   },
   {
     hour: 17, minute: 20, title: 'Stamina: 25 min Easy Run w Strides', discipline: 'run',
     place: 'Malahide, County Dublin', route: RUN_ROUTE,
-    distanceMetres: 4400, durationSeconds: 1506, paceSecondsPerKm: 343,
+    distanceMetres: 4400, durationSeconds: 1506, paceSecondsPerKm: 343, load: 2.4,
   },
 ];
 
@@ -325,15 +327,15 @@ async function seedActivities(
     await db.query(
       `insert into activities (user_id, started_at, title, discipline, place, route,
                                sources, distance_metres, duration_seconds,
-                               pace_seconds_per_km, average_heart_rate, calories)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
+                               pace_seconds_per_km, average_heart_rate, calories, load)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13)`,
       [
         userId, startedAt, activity.title, activity.discipline,
         activity.place ?? null, activity.route ?? '[]',
         ['linked', 'uploaded', 'effort'],
         activity.distanceMetres ?? null, activity.durationSeconds ?? null,
         activity.paceSecondsPerKm ?? null, activity.heartRate ?? null,
-        activity.calories ?? null,
+        activity.calories ?? null, activity.load ?? null,
       ],
     );
 

@@ -31,6 +31,10 @@ import { mockUserService } from '@/providers/user-provider/services/mock-user-se
 import type { UserService } from '@/providers/user-provider/services/user-service';
 import { createFirebaseTelemetryService } from '@/services/telemetry/firebase-telemetry-service';
 import { mockTelemetryService } from '@/services/telemetry/mock-telemetry-service';
+import { apiTrendsService } from '@/providers/trends-provider/services/api-trends-service';
+import { firebaseTrendsService } from '@/providers/trends-provider/services/firebase-trends-service';
+import { mockTrendsService } from '@/providers/trends-provider/services/mock-trends-service';
+import type { TrendsService } from '@/providers/trends-provider/services/trends-service';
 import type { TelemetryService } from '@/services/telemetry/telemetry-service';
 
 export type Services = {
@@ -39,6 +43,7 @@ export type Services = {
   notes: NotesService;
   sessions: SessionsService;
   training: TrainingService;
+  trends: TrendsService;
   user: UserService;
   telemetry: TelemetryService;
 };
@@ -55,6 +60,7 @@ export const services: Services = isMock
       notes: mockNotesService,
       sessions: mockSessionsService,
       training: mockTrainingService,
+      trends: mockTrendsService,
       user: mockUserService,
       telemetry: mockTelemetryService,
     }
@@ -64,6 +70,7 @@ export const services: Services = isMock
       notes: firebaseNotesService,
       sessions: isApi ? apiSessionsService : firebaseSessionsService,
       training: isApi ? apiTrainingService : firebaseTrainingService,
+      trends: isApi ? apiTrendsService : firebaseTrendsService,
       user: isApi ? apiUserService : firebaseUserService,
       telemetry: createFirebaseTelemetryService(),
     };
