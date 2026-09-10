@@ -21,10 +21,11 @@ import type {
 
 import type { DateKey, DateRange } from '@/domain/training';
 import { useAuth } from '@/providers/auth-provider';
-import { useRemoteSubscription, type RemoteState, type Subscribe } from '@/providers/shared/remote-state';
+import type { Subscribe } from '@/providers/shared/remote-state';
+import { useSyncedSubscription, type SyncState } from '@/providers/shared/sync-state';
 
 type SessionsContextValue = {
-  state: RemoteState<SessionModel[]>;
+  state: SyncState<SessionModel[]>;
   /** The span being read. Consumers that combine other data scope it to this. */
   window: DateRange;
   /** The same sessions grouped by day — every consumer wants them that way. */
@@ -40,6 +41,16 @@ type SessionsProviderProps = PropsWithChildren<{
   /** Injected dependency. Defaults to the Firestore implementation. */
   service?: SessionsService;
 }>;
+
+/** The only Date a session carries; everything else survives JSON intact. */
+function reviveSessions(raw: unknown): SessionModel[] {
+  return (raw as SessionModel[]).map(session => ({
+    ...session,
+    completion: session.completion
+      ? { ...session.completion, completedAt: new Date(session.completion.completedAt) }
+      : null,
+  }));
+}
 
 export function SessionsProvider({
   children,
@@ -66,12 +77,20 @@ export function SessionsProvider({
     [uid, service, from, to],
   );
 
-  const remote = useRemoteSubscription(key, subscribe, 'sessions: subscription');
+  /*
+   * Cached per window, so reopening the app at a pool shows this week's
+   * sessions rather than a spinner, and a failed read retries on its own.
+   * `revive` rebuilds `completion.completedAt`, which JSON stored as a string.
+   */
+  const remote = useSyncedSubscription(key, subscribe, {
+    context: 'sessions: subscription',
+    cache: { name: 'sessions', revive: reviveSessions },
+  });
 
   // `remote` is null only with no uid, which cannot happen inside `(main)`.
   // Memoised rather than defaulted inline, so `byDate` is not rebuilt every
   // render by a fresh fallback object.
-  const state = useMemo<RemoteState<SessionModel[]>>(
+  const state = useMemo<SyncState<SessionModel[]>>(
     () => remote ?? { status: 'loading' },
     [remote],
   );

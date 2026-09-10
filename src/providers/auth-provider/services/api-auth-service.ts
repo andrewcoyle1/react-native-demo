@@ -14,6 +14,7 @@ import { AuthError, type AuthService, type AuthUser } from './auth-service';
 
 import type { AuthUserDTO, SessionResponse } from '@/domain/wire.ts';
 import { readCache, writeCache } from '@/providers/shared/persistence';
+import { flushPendingWrites } from '@/providers/shared/pending-writes';
 import {
   ApiError,
   adoptSession,
@@ -85,6 +86,10 @@ function restoreSession(): Promise<void> {
       }
 
       setUser(toAuthUser(await api.get<AuthUserDTO>('/v1/auth/me')));
+
+      // A successful restore is proof the network works, which is the moment
+      // anything queued while it did not should go.
+      void flushPendingWrites();
     } catch {
       /*
        * The server could not be reached, which is a different thing entirely.
@@ -151,6 +156,7 @@ async function startSession(path: string, body: unknown): Promise<void> {
     const session = await api.post<SessionResponse>(path, body, { authenticated: false });
     await adoptSession(session);
     setUser(toAuthUser(session.user));
+    void flushPendingWrites();
   } catch (error) {
     throw describe(error);
   }

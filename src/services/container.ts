@@ -16,6 +16,7 @@ import { mockAuthService } from '@/providers/auth-provider/services/mock-auth-se
 import { firebaseNotesService } from '@/providers/notes-provider/services/firebase-notes-service';
 import { mockNotesService } from '@/providers/notes-provider/services/mock-notes-service';
 import type { NotesService } from '@/providers/notes-provider/services/notes-service';
+import { apiSessionsService } from '@/providers/sessions-provider/services/api-sessions-service';
 import { firebaseSessionsService } from '@/providers/sessions-provider/services/firebase-sessions-service';
 import { mockSessionsService } from '@/providers/sessions-provider/services/mock-sessions-service';
 import type { SessionsService } from '@/providers/sessions-provider/services/sessions-service';
@@ -60,7 +61,7 @@ export const services: Services = isMock
       activities: firebaseActivitiesService,
       auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
-      sessions: firebaseSessionsService,
+      sessions: isApi ? apiSessionsService : firebaseSessionsService,
       training: isApi ? apiTrainingService : firebaseTrainingService,
       user: isApi ? apiUserService : firebaseUserService,
       telemetry: createFirebaseTelemetryService(),
