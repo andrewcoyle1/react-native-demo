@@ -3,14 +3,14 @@ import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyl
 
 import { ThemedText } from './themed-text';
 
-import { PlanAccent, Spacing } from '@/constants/theme';
+import { ActivePlanAccent, Spacing } from '@/constants/theme';
 
 /**
  * Colours are fixed rather than theme tokens: this chart is designed to sit on
  * a photograph, which does not change with the light/dark theme.
  */
 const BarColors = {
-  done: PlanAccent,
+  done: ActivePlanAccent,
   /** Weeks not yet started — a wash over the artwork rather than a solid fill. */
   todo: 'rgba(255, 255, 255, 0.28)',
   /** The dashed outline showing the current week's target. */

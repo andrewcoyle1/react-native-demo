@@ -11,6 +11,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
@@ -26,16 +27,20 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider service={services.auth}>
-        {/* Below AuthProvider: both read the signed-in uid from it. */}
-        <UserProvider service={services.user}>
-          <NotesProvider service={services.notes}>
-            <RootNavigator />
-          </NotesProvider>
-        </UserProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    /* Required by react-native-gesture-handler v2 for any GestureDetector below
+       it — the Plan tab's week swipe is the first of them. */
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider service={services.auth}>
+          {/* Below AuthProvider: both read the signed-in uid from it. */}
+          <UserProvider service={services.user}>
+            <NotesProvider service={services.notes}>
+              <RootNavigator />
+            </NotesProvider>
+          </UserProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -99,9 +104,13 @@ function RootNavigator() {
             name="sheet"
             options={{
               presentation: 'formSheet',
-              headerShown: true,
-              title: 'Sheet',
-              sheetAllowedDetents: [0.4, 0.9],
+              /* No header: the sheet carries its own title, and the grabber is
+                 the only chrome the design shows. */
+              headerShown: false,
+              title: "What's new",
+              /* One large detent: the design shows the sheet just clear of the
+                 status bar, not resting at a half height. */
+              sheetAllowedDetents: [0.94],
               sheetGrabberVisible: true,
             }}
           />

@@ -4,24 +4,23 @@ import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
-import { ProfileCard, type RaceTarget } from '@/components/profile-card';
+import { ProfileCard } from '@/components/profile-card';
 import { Screen } from '@/components/screen';
 import { SettingsGroup } from '@/components/settings-group';
 import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Accents, PlanAccent, Spacing, Zones } from '@/constants/theme';
+import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import {
+  formatRaceDate,
+  formatRaceTarget,
+  toRaceTargets,
+} from '@/presenters/plan-presenter';
 import { AuthError, useAuth } from '@/providers/auth-provider';
+import { useTraining } from '@/providers/training-provider';
 import { useUser } from '@/providers/user-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
-
-/** The race being trained for. Placeholder until the plan service lands. */
-const RACE_TARGETS: RaceTarget[] = [
-  { icon: 'figure.pool.swim', accent: Zones.swim, value: '1.9', unit: 'km', alternate: '1.2 mi' },
-  { icon: 'bicycle', accent: Zones.ride, value: '90', unit: 'km', alternate: '56 mi' },
-  { icon: 'figure.run', accent: Zones.hard, value: '21.1', unit: 'km', alternate: '13.1 mi' },
-];
 
 type Social = { id: string; icon: SFSymbol; gradient: string; label: string; url: string };
 
@@ -60,6 +59,11 @@ export default function ProfileScreen() {
 
   const { user, signOut } = useAuth();
   const { state } = useUser();
+  const { races } = useTraining();
+
+  // The goal race is the A race: the one the plans build towards.
+  const race =
+    races.status === 'ready' ? (races.data.find(item => item.priority === 'A') ?? null) : null;
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,16 +112,19 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ProfileCard
-        name={name}
-        race="IRONMAN 70.3 Luxembourg"
-        place="Moselle, Luxembourg 🇱🇺"
-        date="11 July 2027"
-        target="5H 08M"
-        targets={RACE_TARGETS}
-        /* Remote test photo, to prove the wiring. Swap for real artwork. */
-        artwork="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800"
-      />
+      {/* Only rendered once the goal race is known: the card is entirely about
+          that race, so there is nothing to show in its place. */}
+      {race ? (
+        <ProfileCard
+          name={name}
+          race={race.name}
+          place={race.place}
+          date={formatRaceDate(race)}
+          target={formatRaceTarget(race) ?? 'No goal set'}
+          targets={toRaceTargets(race, 'metric')}
+          artwork={race.artworkUrl ?? undefined}
+        />
+      ) : null}
 
       <SettingsGroup label="Fitness metrics">
         <SettingsRow
@@ -226,7 +233,7 @@ export default function ProfileScreen() {
       <SettingsGroup label="Misc">
         <SettingsRow
           icon="play.circle"
-          iconAccent={PlanAccent}
+          iconAccent={ActivePlanAccent}
           title="Meet Your Coaches"
           subtitle="Watch coach introductions"
         />

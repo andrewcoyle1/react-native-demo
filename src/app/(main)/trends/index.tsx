@@ -4,7 +4,7 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { SectionCard } from '@/components/section-card';
 import { StatTile } from '@/components/stat-tile';
-import { Accents, PlanAccent, Spacing, Zones } from '@/constants/theme';
+import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 
 /**
@@ -24,7 +24,7 @@ export default function TrendsScreen() {
   return (
     <Screen>
 
-      <SectionCard title="Training Goals" icon="chart.line.uptrend.xyaxis" iconAccent={PlanAccent}>
+      <SectionCard title="Training Goals" icon="chart.line.uptrend.xyaxis" iconAccent={ActivePlanAccent}>
         {/* Planned and completed sit side by side so the shortfall is read as a
             comparison rather than as two separate figures. */}
         <View style={styles.columns}>
@@ -40,7 +40,7 @@ export default function TrendsScreen() {
               label="Completed"
               time={GOALS.completedTime}
               distance={GOALS.completedDistance}
-              accent={PlanAccent}
+              accent={ActivePlanAccent}
             />
           </View>
         </View>
@@ -49,9 +49,9 @@ export default function TrendsScreen() {
       <SectionCard
         title="Fitness, Fatigue & Form"
         icon="heart.text.square"
-        iconAccent={PlanAccent}
+        iconAccent={ActivePlanAccent}
         badge="Optimal"
-        badgeAccent={PlanAccent}>
+        badgeAccent={ActivePlanAccent}>
         <View style={styles.columns}>
           <View style={styles.column}>
             <StatTile
@@ -69,7 +69,7 @@ export default function TrendsScreen() {
               icon="heart"
               label="Fitness"
               value="38"
-              accent={PlanAccent}
+              accent={ActivePlanAccent}
               trend="up"
             />
           </View>

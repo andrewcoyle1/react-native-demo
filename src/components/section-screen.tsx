@@ -38,6 +38,11 @@ type SectionScreenProps<TItem, TMeta> = {
   ListFooterComponent?: ReactElement;
   /** Rendered outside the list, e.g. a `Stack.Toolbar`. */
   children?: ReactNode;
+  /**
+   * Called as the list nears its end, for collections read a page at a time.
+   * Safe to fire more than once — `usePagedCollection` guards re-entry itself.
+   */
+  onEndReached?: () => void;
 };
 
 export function SectionScreen<TItem, TMeta>({
@@ -48,6 +53,7 @@ export function SectionScreen<TItem, TMeta>({
   ListHeaderComponent,
   ListFooterComponent,
   children,
+  onEndReached,
 }: SectionScreenProps<TItem, TMeta>) {
   const theme = useTheme();
   const contentPlatformStyle = useScreenPadding();
@@ -68,6 +74,10 @@ export function SectionScreen<TItem, TMeta>({
         /* Extra room past the tab bar so the last card clears it when scrolled. */
         contentInset={{ bottom: Spacing.four }}
         contentContainerStyle={contentPlatformStyle}
+        onEndReached={onEndReached}
+        /* Half a screen out, so the next page is in hand before the athlete
+           reaches the bottom rather than after they hit it. */
+        onEndReachedThreshold={0.5}
         keyboardShouldPersistTaps="handled"
         /* Default on iOS, explicit here because it is the point of this shell. */
         stickySectionHeadersEnabled
