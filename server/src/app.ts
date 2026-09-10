@@ -8,15 +8,30 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { authRoutes } from './auth/routes.ts';
 import { pool } from './db.ts';
+import { config } from './config.ts';
 import { ApiError } from './errors.ts';
+import { registerRateLimit } from './plugins/rate-limit.ts';
 import { profileRoutes } from './profile/routes.ts';
 import { activityRoutes } from './activities/routes.ts';
 import { sessionRoutes } from './sessions/routes.ts';
 import { trainingRoutes } from './training/routes.ts';
 import { trendRoutes } from './trends/routes.ts';
 
-export function buildApp(): FastifyInstance {
+export type AppOptions = {
+  /** Tighten the limits so a test can actually reach them. */
+  rateLimit?: { max?: number; authMax?: number };
+};
+
+/**
+ * Async because rate limiting is a plugin and plugins register asynchronously.
+ * Callers `await buildApp()`; tests then `await app.ready()` as before.
+ */
+export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
+    // Without this, `request.ip` behind a proxy is the proxy — so every user
+    // would share one rate-limit budget. See config.ts for why it is off by
+    // default.
+    trustProxy: config.trustProxy,
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
       // Never log a token or a password, however deeply nested.
@@ -46,7 +61,7 @@ export function buildApp(): FastifyInstance {
    * logged in full and reported as a bare 500, because its message may contain
    * details a caller should not see.
    */
-  app.setErrorHandler((error: Error & { validation?: unknown }, request, reply) => {
+  app.setErrorHandler((error: Error & { validation?: unknown; statusCode?: number }, request, reply) => {
     if (error instanceof ApiError) {
       reply.code(error.status);
       return {
@@ -59,6 +74,26 @@ export function buildApp(): FastifyInstance {
       reply.code(422);
       return {
         error: { code: 'validation_failed', message: error.message },
+      };
+    }
+
+    /*
+     * Fastify and its plugins raise errors carrying their own status — the rate
+     * limiter's 429 chief among them. Those are answers, not faults, and
+     * flattening them to a 500 loses both the status and the meaning.
+     */
+    const status = error.statusCode;
+    if (typeof status === 'number' && status >= 400 && status < 500) {
+      reply.code(status);
+      const retryAfter = reply.getHeader('retry-after');
+      return {
+        error: {
+          code: status === 429 ? 'rate_limited' : 'invalid_request',
+          message:
+            status === 429
+              ? `Too many attempts. Try again${retryAfter ? ` in ${retryAfter}s` : ' shortly'}.`
+              : error.message,
+        },
       };
     }
 
@@ -82,7 +117,9 @@ export function buildApp(): FastifyInstance {
     };
   });
 
-  app.register(authRoutes);
+  await registerRateLimit(app, options.rateLimit);
+
+  app.register(authRoutes, { rateLimit: options.rateLimit });
   app.register(profileRoutes);
   app.register(trainingRoutes);
   app.register(sessionRoutes);

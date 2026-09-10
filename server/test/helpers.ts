@@ -5,7 +5,20 @@
  * itself, because a test that fails part-way leaves debris otherwise and the
  * next failure is then someone else's.
  */
+import { buildApp } from '../src/app.ts';
 import { pool } from '../src/db.ts';
+
+/**
+ * The app as most tests use it, with the rate limits raised out of the way.
+ *
+ * Every `inject()` call arrives from the same address, so the real limits would
+ * be reached within one describe block — and these tests are about what the
+ * endpoints do, not about how often they may be called. `rate-limit.test.ts`
+ * builds its own app with tight limits and asserts the limiter separately.
+ */
+export function buildTestApp() {
+  return buildApp({ rateLimit: { max: 100_000, authMax: 100_000 } });
+}
 
 /** Empties every table. `cascade` follows the foreign keys for us. */
 export async function resetDatabase(): Promise<void> {

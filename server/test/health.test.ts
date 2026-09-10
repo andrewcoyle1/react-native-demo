@@ -7,11 +7,11 @@
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 
-import { buildApp } from '../src/app.ts';
 import { pool } from '../src/db.ts';
 import { migrate } from '../src/migrate.ts';
+import { buildTestApp } from './helpers.ts';
 
-const app = buildApp();
+const app = await buildTestApp();
 
 after(async () => {
   await app.close();

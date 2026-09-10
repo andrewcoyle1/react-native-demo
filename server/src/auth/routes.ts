@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { notFound } from '../errors.ts';
 import { authenticate } from '../plugins/authenticate.ts';
+import { authRateLimit } from '../plugins/rate-limit.ts';
 import { PASSWORD_MAX, PASSWORD_MIN } from './password.ts';
 import * as auth from './service.ts';
 
@@ -16,10 +17,21 @@ const email = { type: 'string', format: 'email', maxLength: 320 } as const;
 const password = { type: 'string', minLength: PASSWORD_MIN, maxLength: PASSWORD_MAX } as const;
 const refreshToken = { type: 'string', minLength: 1, maxLength: 512 } as const;
 
-export async function authRoutes(app: FastifyInstance): Promise<void> {
+export async function authRoutes(
+  app: FastifyInstance,
+  options: { rateLimit?: { authMax?: number } } = {},
+): Promise<void> {
+  /*
+   * The tight budget, applied to every endpoint that takes a credential.
+   * Sign-out is left on the global limit: it destroys a session rather than
+   * granting one, so there is nothing to gain by repeating it.
+   */
+  const limited = authRateLimit(options.rateLimit);
+
   app.post(
     '/v1/auth/sign-up',
     {
+      config: limited,
       schema: {
         body: {
           type: 'object',
@@ -45,6 +57,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     '/v1/auth/sign-in',
     {
+      config: limited,
       schema: {
         body: {
           type: 'object',
@@ -62,6 +75,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     '/v1/auth/refresh',
     {
+      config: limited,
       schema: {
         body: {
           type: 'object',

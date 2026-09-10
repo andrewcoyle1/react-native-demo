@@ -10,7 +10,7 @@ import { config } from './config.ts';
 import { pool } from './db.ts';
 import { migrate } from './migrate.ts';
 
-const app = buildApp();
+const app = await buildApp();
 
 try {
   const ran = await migrate();

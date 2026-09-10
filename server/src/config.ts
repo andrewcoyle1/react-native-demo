@@ -24,4 +24,22 @@ export const config = {
   port: Number(optional('PORT', '4000')),
   jwtSecret: required('JWT_SECRET'),
   isProduction: process.env.NODE_ENV === 'production',
+
+  /*
+   * Trust `X-Forwarded-For` when something in front of us sets it.
+   *
+   * Off by default and deliberately so: with it on and no proxy, a client can
+   * forge the header and every rate limit becomes trivially evadable. Turn it
+   * on only once a load balancer is actually in front, or `request.ip` is the
+   * proxy's address and every user shares one budget.
+   */
+  trustProxy: optional('TRUST_PROXY', 'false') === 'true',
+
+  rateLimit: {
+    /** Requests per window for ordinary endpoints, per IP. */
+    max: Number(optional('RATE_LIMIT_MAX', '300')),
+    /** Requests per window for the auth endpoints, which are the ones guessed at. */
+    authMax: Number(optional('RATE_LIMIT_AUTH_MAX', '10')),
+    windowMs: Number(optional('RATE_LIMIT_WINDOW_MS', '60000')),
+  },
 } as const;
