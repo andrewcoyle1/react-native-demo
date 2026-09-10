@@ -78,14 +78,44 @@ function restoreSession(): Promise<void> {
   return restoring;
 }
 
+/**
+ * Human copy for each failure the API can return.
+ *
+ * The server's own `message` is written for logs and developers — a rejected
+ * password arrives as "body/password must NOT have fewer than 8 characters".
+ * The code is the stable thing; the wording belongs here, next to the screens
+ * that show it, exactly as the Firebase implementation does it.
+ */
+function messageFor(code: string, fallback: string): string {
+  switch (code) {
+    case 'email_taken':
+      return 'That email is already registered. Try signing in instead.';
+    case 'invalid_credentials':
+      return 'Email or password is incorrect.';
+    case 'validation_failed':
+      return 'Check your email address, and use a password of at least 8 characters.';
+    case 'token_reused':
+    case 'token_revoked':
+    case 'token_expired':
+    case 'token_invalid':
+      return 'Your session has ended. Please sign in again.';
+    case 'rate_limited':
+      return 'Too many attempts. Wait a moment and try again.';
+    case 'internal':
+      return 'Something went wrong at our end. Please try again.';
+    default:
+      return fallback;
+  }
+}
+
 /** Turns an API failure into the vendor-neutral error the screens already show. */
 function describe(error: unknown): AuthError {
   if (error instanceof ApiError) {
-    return new AuthError(error.code, error.message);
+    return new AuthError(error.code, messageFor(error.code, error.message));
   }
   return new AuthError(
     'auth/network-request-failed',
-    'Network unavailable. Check your connection and try again.',
+    'Cannot reach the server. Is it running on the address the app is pointed at?',
   );
 }
 
