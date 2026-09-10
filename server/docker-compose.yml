@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: stamina-postgres
+    environment:
+      POSTGRES_USER: stamina
+      POSTGRES_PASSWORD: stamina
+      POSTGRES_DB: stamina
+    ports:
+      # 5433, not 5432: leaves any Postgres already on this machine alone.
+      - '5433:5432'
+    volumes:
+      - stamina-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stamina -d stamina']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  stamina-pgdata:
