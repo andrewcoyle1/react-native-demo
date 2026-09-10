@@ -6,6 +6,7 @@
  * rather than hidden behind defaults.
  */
 import { isApi, isMock } from '@/config/environment';
+import { apiActivitiesService } from '@/providers/activities-provider/services/api-activities-service';
 import { firebaseActivitiesService } from '@/providers/activities-provider/services/firebase-activities-service';
 import { mockActivitiesService } from '@/providers/activities-provider/services/mock-activities-service';
 import type { ActivitiesService } from '@/providers/activities-provider/services/activities-service';
@@ -58,7 +59,7 @@ export const services: Services = isMock
       telemetry: mockTelemetryService,
     }
   : {
-      activities: firebaseActivitiesService,
+      activities: isApi ? apiActivitiesService : firebaseActivitiesService,
       auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
       sessions: isApi ? apiSessionsService : firebaseSessionsService,

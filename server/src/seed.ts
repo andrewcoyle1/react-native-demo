@@ -75,9 +75,11 @@ async function seed(email: string): Promise<void> {
     );
 
     const sessions = await seedSessions(db, userId);
+    const activities = await seedActivities(db, userId);
 
     console.log(
-      `Seeded ${email}: 2 plans, 1 race, a schedule, 2 commitments and ${sessions} sessions.`,
+      `Seeded ${email}: 2 plans, 1 race, a schedule, 2 commitments, ` +
+        `${sessions} sessions and ${activities} activities.`,
     );
   });
 }
@@ -233,6 +235,109 @@ async function seedSessions(
         );
       }
     }
+  }
+
+  return count;
+}
+
+/** A normalised polyline, standing in for a map tile. */
+const RUN_ROUTE = JSON.stringify([
+  { x: 0.04, y: 0.62 }, { x: 0.18, y: 0.55 }, { x: 0.3, y: 0.6 }, { x: 0.44, y: 0.5 },
+  { x: 0.58, y: 0.52 }, { x: 0.72, y: 0.44 }, { x: 0.88, y: 0.47 }, { x: 0.97, y: 0.4 },
+]);
+
+const RIDE_ROUTE = JSON.stringify([
+  { x: 0.42, y: 0.08 }, { x: 0.6, y: 0.14 }, { x: 0.66, y: 0.3 }, { x: 0.58, y: 0.46 },
+  { x: 0.62, y: 0.62 }, { x: 0.5, y: 0.76 }, { x: 0.34, y: 0.8 }, { x: 0.22, y: 0.68 },
+  { x: 0.2, y: 0.5 }, { x: 0.28, y: 0.32 }, { x: 0.42, y: 0.08 },
+]);
+
+type SeedActivity = {
+  hour: number;
+  minute: number;
+  title: string;
+  discipline: string;
+  place?: string;
+  route?: string;
+  distanceMetres?: number;
+  durationSeconds?: number;
+  paceSecondsPerKm?: number;
+  heartRate?: number;
+  calories?: number;
+};
+
+/** A week's worth of recorded work, repeated backwards to build a history. */
+const RECORDED: SeedActivity[] = [
+  {
+    hour: 13, minute: 57, title: 'Stamina: 6 × 2 min Fast Intervals', discipline: 'run',
+    place: 'Dublin, IE', route: RUN_ROUTE,
+    distanceMetres: 5900, durationSeconds: 1983, paceSecondsPerKm: 336,
+  },
+  {
+    hour: 11, minute: 51, title: 'Stamina: Chest Pressure Cooker', discipline: 'swim',
+    distanceMetres: 2700, durationSeconds: 5445, paceSecondsPerKm: 1390,
+  },
+  {
+    hour: 12, minute: 55, title: 'Lunch Ride', discipline: 'ride',
+    place: 'Stapolin, Baldoyle', route: RIDE_ROUTE,
+    distanceMetres: 19000, durationSeconds: 2781, paceSecondsPerKm: 146,
+  },
+  {
+    hour: 10, minute: 47, title: 'Lower', discipline: 'weights',
+    durationSeconds: 3870, heartRate: 100, calories: 345,
+  },
+  {
+    hour: 9, minute: 34, title: 'Stamina: 45 min Easy Ride', discipline: 'ride',
+    place: 'Stapolin, Baldoyle', route: RIDE_ROUTE,
+    distanceMetres: 19000, durationSeconds: 2736, paceSecondsPerKm: 144,
+  },
+  {
+    hour: 17, minute: 20, title: 'Stamina: 25 min Easy Run w Strides', discipline: 'run',
+    place: 'Malahide, County Dublin', route: RUN_ROUTE,
+    distanceMetres: 4400, durationSeconds: 1506, paceSecondsPerKm: 343,
+  },
+];
+
+/**
+ * Six weeks back, so the Activities tab has more history than one page holds —
+ * which is what makes paging visible rather than theoretical.
+ */
+async function seedActivities(
+  db: Parameters<Parameters<typeof transaction>[0]>[0],
+  userId: string,
+): Promise<number> {
+  await db.query('delete from activities where user_id = $1', [userId]);
+
+  const today = new Date();
+  let count = 0;
+
+  for (let daysAgo = 0; daysAgo < 42; daysAgo += 1) {
+    // Not every day has a session recorded against it.
+    if (daysAgo % 7 === 6) {
+      continue;
+    }
+
+    const activity = RECORDED[daysAgo % RECORDED.length]!;
+    const startedAt = new Date(today);
+    startedAt.setDate(startedAt.getDate() - daysAgo);
+    startedAt.setHours(activity.hour, activity.minute, 0, 0);
+
+    await db.query(
+      `insert into activities (user_id, started_at, title, discipline, place, route,
+                               sources, distance_metres, duration_seconds,
+                               pace_seconds_per_km, average_heart_rate, calories)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12)`,
+      [
+        userId, startedAt, activity.title, activity.discipline,
+        activity.place ?? null, activity.route ?? '[]',
+        ['linked', 'uploaded', 'effort'],
+        activity.distanceMetres ?? null, activity.durationSeconds ?? null,
+        activity.paceSecondsPerKm ?? null, activity.heartRate ?? null,
+        activity.calories ?? null,
+      ],
+    );
+
+    count += 1;
   }
 
   return count;
