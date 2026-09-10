@@ -10,6 +10,7 @@ import { authRoutes } from './auth/routes.ts';
 import { pool } from './db.ts';
 import { ApiError } from './errors.ts';
 import { profileRoutes } from './profile/routes.ts';
+import { trainingRoutes } from './training/routes.ts';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -80,6 +81,7 @@ export function buildApp(): FastifyInstance {
 
   app.register(authRoutes);
   app.register(profileRoutes);
+  app.register(trainingRoutes);
 
   return app;
 }

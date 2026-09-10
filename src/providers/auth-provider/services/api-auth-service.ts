@@ -13,6 +13,7 @@
 import { AuthError, type AuthService, type AuthUser } from './auth-service';
 
 import type { AuthUserDTO, SessionResponse } from '@/domain/wire.ts';
+import { readCache, writeCache } from '@/providers/shared/persistence';
 import {
   ApiError,
   adoptSession,
@@ -32,6 +33,17 @@ function toAuthUser(dto: AuthUserDTO): AuthUser {
   };
 }
 
+/**
+ * The last account known to be signed in.
+ *
+ * Not a credential — a uid, an email and which providers are attached — so it
+ * lives beside the other caches rather than in the Keychain. It exists so that
+ * launching without a network is not the same as being signed out: the refresh
+ * token is still there, still unexpired, and still the only thing that can
+ * actually obtain access.
+ */
+const USER_CACHE_KEY = 'auth.user';
+
 let currentUser: AuthUser | null = null;
 const listeners = new Set<(user: AuthUser | null) => void>();
 
@@ -41,6 +53,7 @@ function emit() {
 
 function setUser(user: AuthUser | null) {
   currentUser = user;
+  void writeCache(USER_CACHE_KEY, user);
   emit();
 }
 
@@ -62,16 +75,30 @@ function restoreSession(): Promise<void> {
 
     try {
       const renewed = await refreshSession();
+
+      // Null means the *server* rejected the token — consumed, revoked or
+      // expired. That is a real sign-out, and `refreshSession` has already
+      // discarded it.
       if (!renewed) {
         setUser(null);
         return;
       }
+
       setUser(toAuthUser(await api.get<AuthUserDTO>('/v1/auth/me')));
     } catch {
-      // A network failure on launch is not a sign-out: the stored token is
-      // still good, and the next request will try again. Report signed out for
-      // now rather than blocking the gate forever.
-      setUser(null);
+      /*
+       * The server could not be reached, which is a different thing entirely.
+       * The refresh token is untouched and may still be perfectly good, so
+       * reporting signed out would throw the athlete back to onboarding every
+       * time they open the app on a train — and would make the caches
+       * unreachable, since nothing below the auth gate ever mounts.
+       *
+       * Stay optimistically signed in as whoever was last known. Every request
+       * still fails until the network returns, and the next successful refresh
+       * is what proves the session is real.
+       */
+      const remembered = (await readCache(USER_CACHE_KEY)) as AuthUser | null;
+      setUser(remembered ?? null);
     }
   })();
 

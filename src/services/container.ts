@@ -19,6 +19,7 @@ import type { NotesService } from '@/providers/notes-provider/services/notes-ser
 import { firebaseSessionsService } from '@/providers/sessions-provider/services/firebase-sessions-service';
 import { mockSessionsService } from '@/providers/sessions-provider/services/mock-sessions-service';
 import type { SessionsService } from '@/providers/sessions-provider/services/sessions-service';
+import { apiTrainingService } from '@/providers/training-provider/services/api-training-service';
 import { firebaseTrainingService } from '@/providers/training-provider/services/firebase-training-service';
 import { mockTrainingService } from '@/providers/training-provider/services/mock-training-service';
 import type { TrainingService } from '@/providers/training-provider/services/training-service';
@@ -60,7 +61,7 @@ export const services: Services = isMock
       auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
       sessions: firebaseSessionsService,
-      training: firebaseTrainingService,
+      training: isApi ? apiTrainingService : firebaseTrainingService,
       user: isApi ? apiUserService : firebaseUserService,
       telemetry: createFirebaseTelemetryService(),
     };

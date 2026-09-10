@@ -21,13 +21,19 @@ import type {
 } from './services/training-service';
 
 import { useAuth } from '@/providers/auth-provider';
-import { useRemoteSubscription, type RemoteState, type Subscribe } from '@/providers/shared/remote-state';
+import type { Subscribe } from '@/providers/shared/remote-state';
+import { useSyncedSubscription, type SyncState } from '@/providers/shared/sync-state';
 
 type TrainingContextValue = {
-  plans: RemoteState<PlanModel[]>;
-  races: RemoteState<RaceModel[]>;
+  /*
+   * `SyncState` rather than `RemoteState`: it is the same union with `stale` on
+   * the ready branch, so a screen can say whether it is showing a cached copy.
+   * Consumers that ignore it are unaffected.
+   */
+  plans: SyncState<PlanModel[]>;
+  races: SyncState<RaceModel[]>;
   /** Null data means the athlete has not set a schedule up yet. */
-  schedule: RemoteState<ScheduleModel | null>;
+  schedule: SyncState<ScheduleModel | null>;
   /** Resolves the race a plan builds towards, or null when there is none. */
   raceFor: (plan: PlanModel) => RaceModel | null;
   updateSchedule: (changes: Partial<ScheduleDraft>) => Promise<void>;
@@ -40,6 +46,15 @@ type TrainingProviderProps = PropsWithChildren<{
 }>;
 
 const Loading = { status: 'loading' } as const;
+
+/** `modifiedAt` is a Date, which JSON stored as a string. */
+function reviveSchedule(raw: unknown): ScheduleModel | null {
+  if (raw === null) {
+    return null;
+  }
+  const stored = raw as Omit<ScheduleModel, 'modifiedAt'> & { modifiedAt: string | null };
+  return { ...stored, modifiedAt: stored.modifiedAt ? new Date(stored.modifiedAt) : null };
+}
 
 export function TrainingProvider({
   children,
@@ -63,9 +78,32 @@ export function TrainingProvider({
     [service],
   );
 
-  const plans = useRemoteSubscription(uid, subscribePlans, 'training: plans') ?? Loading;
-  const races = useRemoteSubscription(uid, subscribeRaces, 'training: races') ?? Loading;
-  const schedule = useRemoteSubscription(uid, subscribeSchedule, 'training: schedule') ?? Loading;
+  /*
+   * Cached so that opening the app shows the plan it showed last time rather
+   * than a spinner, and retried with backoff so a read that failed in a tunnel
+   * recovers without the athlete doing anything.
+   *
+   * `revive` rebuilds what JSON cannot carry. Plans and races hold only strings
+   * and numbers, so theirs are pass-throughs; the schedule's `modifiedAt` is a
+   * Date and has to be rebuilt.
+   */
+  const plans =
+    useSyncedSubscription(uid, subscribePlans, {
+      context: 'training: plans',
+      cache: { name: 'plans', revive: raw => raw as PlanModel[] },
+    }) ?? Loading;
+
+  const races =
+    useSyncedSubscription(uid, subscribeRaces, {
+      context: 'training: races',
+      cache: { name: 'races', revive: raw => raw as RaceModel[] },
+    }) ?? Loading;
+
+  const schedule =
+    useSyncedSubscription(uid, subscribeSchedule, {
+      context: 'training: schedule',
+      cache: { name: 'schedule', revive: reviveSchedule },
+    }) ?? Loading;
 
   const updateSchedule = useCallback(
     async (changes: Partial<ScheduleDraft>) => {
