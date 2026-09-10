@@ -9,6 +9,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { authRoutes } from './auth/routes.ts';
 import { pool } from './db.ts';
 import { ApiError } from './errors.ts';
+import { profileRoutes } from './profile/routes.ts';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -62,7 +63,23 @@ export function buildApp(): FastifyInstance {
     return { error: { code: 'internal', message: 'Something went wrong.' } };
   });
 
+  /*
+   * Fastify answers an unknown route itself, before the error handler above
+   * ever runs, and its default body is a different shape from every other
+   * failure this API returns. A client parsing `error.code` would find nothing.
+   */
+  app.setNotFoundHandler((request, reply) => {
+    reply.code(404);
+    return {
+      error: {
+        code: 'route_not_found',
+        message: `No route for ${request.method} ${request.url}.`,
+      },
+    };
+  });
+
   app.register(authRoutes);
+  app.register(profileRoutes);
 
   return app;
 }

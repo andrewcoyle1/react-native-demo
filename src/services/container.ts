@@ -22,6 +22,7 @@ import type { SessionsService } from '@/providers/sessions-provider/services/ses
 import { firebaseTrainingService } from '@/providers/training-provider/services/firebase-training-service';
 import { mockTrainingService } from '@/providers/training-provider/services/mock-training-service';
 import type { TrainingService } from '@/providers/training-provider/services/training-service';
+import { apiUserService } from '@/providers/user-provider/services/api-user-service';
 import { firebaseUserService } from '@/providers/user-provider/services/firebase-user-service';
 import { mockUserService } from '@/providers/user-provider/services/mock-user-service';
 import type { UserService } from '@/providers/user-provider/services/user-service';
@@ -60,6 +61,6 @@ export const services: Services = isMock
       notes: firebaseNotesService,
       sessions: firebaseSessionsService,
       training: firebaseTrainingService,
-      user: firebaseUserService,
+      user: isApi ? apiUserService : firebaseUserService,
       telemetry: createFirebaseTelemetryService(),
     };
