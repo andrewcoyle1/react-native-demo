@@ -45,7 +45,8 @@
             "useFrameworks": "dynamic"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

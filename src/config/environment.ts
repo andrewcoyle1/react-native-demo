@@ -5,9 +5,9 @@
  * runtime. Changing environments means restarting the dev server (see the
  * `start:*` scripts in package.json), and `--clear` avoids a stale cached bundle.
  */
-export type AppEnvironment = 'mock' | 'dev' | 'prod';
+export type AppEnvironment = 'mock' | 'api' | 'dev' | 'prod';
 
-const ENVIRONMENTS: readonly AppEnvironment[] = ['mock', 'dev', 'prod'];
+const ENVIRONMENTS: readonly AppEnvironment[] = ['mock', 'api', 'dev', 'prod'];
 
 function isAppEnvironment(value: string | undefined): value is AppEnvironment {
   return !!value && (ENVIRONMENTS as readonly string[]).includes(value);
@@ -28,6 +28,18 @@ export const environment = resolve(process.env.EXPO_PUBLIC_APP_ENV);
 
 /** True when every dependency is an in-memory fake and nothing touches the network. */
 export const isMock = environment === 'mock';
+
+/** True when the app talks to the Node and Postgres service rather than Firebase. */
+export const isApi = environment === 'api';
+
+/**
+ * Where the API lives.
+ *
+ * A simulator reaches the host as `localhost`; a physical device cannot, and
+ * needs this machine's address on the network — hence the override rather than
+ * a hardcoded value.
+ */
+export const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export const flags = {
   /** Analytics events are only collected in production. */

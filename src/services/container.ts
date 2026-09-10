@@ -5,11 +5,12 @@
  * `_layout.tsx` injects these into the providers, so the wiring stays visible
  * rather than hidden behind defaults.
  */
-import { isMock } from '@/config/environment';
+import { isApi, isMock } from '@/config/environment';
 import { firebaseActivitiesService } from '@/providers/activities-provider/services/firebase-activities-service';
 import { mockActivitiesService } from '@/providers/activities-provider/services/mock-activities-service';
 import type { ActivitiesService } from '@/providers/activities-provider/services/activities-service';
 import type { AuthService } from '@/providers/auth-provider/services/auth-service';
+import { apiAuthService } from '@/providers/auth-provider/services/api-auth-service';
 import { firebaseAuthService } from '@/providers/auth-provider/services/firebase-auth-service';
 import { mockAuthService } from '@/providers/auth-provider/services/mock-auth-service';
 import { firebaseNotesService } from '@/providers/notes-provider/services/firebase-notes-service';
@@ -38,6 +39,11 @@ export type Services = {
   telemetry: TelemetryService;
 };
 
+/*
+ * Three backends now. `api` is being built out one slice at a time, so it takes
+ * its own auth service and keeps Firebase for everything not yet ported —
+ * which is what lets the app stay runnable throughout the move.
+ */
 export const services: Services = isMock
   ? {
       activities: mockActivitiesService,
@@ -50,7 +56,7 @@ export const services: Services = isMock
     }
   : {
       activities: firebaseActivitiesService,
-      auth: firebaseAuthService,
+      auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
       sessions: firebaseSessionsService,
       training: firebaseTrainingService,

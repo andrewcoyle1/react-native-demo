@@ -11,6 +11,8 @@ services:
       - '5433:5432'
     volumes:
       - stamina-pgdata:/var/lib/postgresql/data
+      # Runs once, when the data directory is first created.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U stamina -d stamina']
       interval: 2s

@@ -1,0 +1,151 @@
+/**
+ * `AuthService` over the Stamina API.
+ *
+ * The third implementation of this seam, alongside Firebase and the mock, and
+ * the one the app will keep. Nothing above it changes: the provider and every
+ * screen see the same five methods and the same `AuthUser`.
+ *
+ * Firebase kept sign-in state for us and replayed it on launch. Here that is
+ * this file's job — the stored refresh token is the durable half of a session,
+ * and restoring one means exchanging it for a fresh pair before anything else
+ * asks for data.
+ */
+import { AuthError, type AuthService, type AuthUser } from './auth-service';
+
+import type { AuthUserDTO, SessionResponse } from '@/domain/wire.ts';
+import {
+  ApiError,
+  adoptSession,
+  api,
+  currentRefreshToken,
+  discardSession,
+  refreshSession,
+  setSignedOutHandler,
+} from '@/services/api/client';
+
+function toAuthUser(dto: AuthUserDTO): AuthUser {
+  return {
+    uid: dto.uid,
+    email: dto.email,
+    emailVerified: dto.emailVerified,
+    providers: dto.providers,
+  };
+}
+
+let currentUser: AuthUser | null = null;
+const listeners = new Set<(user: AuthUser | null) => void>();
+
+function emit() {
+  listeners.forEach(listener => listener(currentUser));
+}
+
+function setUser(user: AuthUser | null) {
+  currentUser = user;
+  emit();
+}
+
+/** The server ended the session underneath us — a revoked or replayed token. */
+setSignedOutHandler(() => setUser(null));
+
+/**
+ * Runs once per launch, and everyone who subscribes before it finishes waits
+ * for the same attempt rather than starting their own.
+ */
+let restoring: Promise<void> | null = null;
+
+function restoreSession(): Promise<void> {
+  restoring ??= (async () => {
+    if (!(await currentRefreshToken())) {
+      setUser(null);
+      return;
+    }
+
+    try {
+      const renewed = await refreshSession();
+      if (!renewed) {
+        setUser(null);
+        return;
+      }
+      setUser(toAuthUser(await api.get<AuthUserDTO>('/v1/auth/me')));
+    } catch {
+      // A network failure on launch is not a sign-out: the stored token is
+      // still good, and the next request will try again. Report signed out for
+      // now rather than blocking the gate forever.
+      setUser(null);
+    }
+  })();
+
+  return restoring;
+}
+
+/** Turns an API failure into the vendor-neutral error the screens already show. */
+function describe(error: unknown): AuthError {
+  if (error instanceof ApiError) {
+    return new AuthError(error.code, error.message);
+  }
+  return new AuthError(
+    'auth/network-request-failed',
+    'Network unavailable. Check your connection and try again.',
+  );
+}
+
+async function startSession(path: string, body: unknown): Promise<void> {
+  try {
+    const session = await api.post<SessionResponse>(path, body, { authenticated: false });
+    await adoptSession(session);
+    setUser(toAuthUser(session.user));
+  } catch (error) {
+    throw describe(error);
+  }
+}
+
+export const apiAuthService: AuthService = {
+  observeUser(onChange) {
+    listeners.add(onChange);
+
+    // Deferred so subscribers see the same "initializing" tick Firebase gave
+    // them, rather than a synchronous callback during render.
+    const timer = setTimeout(() => {
+      if (restoring) {
+        onChange(currentUser);
+      } else {
+        void restoreSession();
+      }
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      listeners.delete(onChange);
+    };
+  },
+
+  signIn(email, password) {
+    return startSession('/v1/auth/sign-in', { email: email.trim(), password });
+  },
+
+  signUp(email, password) {
+    return startSession('/v1/auth/sign-up', {
+      email: email.trim(),
+      password,
+      // The server cannot work out what day it is for this athlete without it.
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  },
+
+  async signOut() {
+    const refreshToken = await currentRefreshToken();
+
+    try {
+      if (refreshToken) {
+        await api.post('/v1/auth/sign-out', { refreshToken }, { authenticated: false });
+      }
+    } catch {
+      // Signing out locally must succeed even when the server cannot be told.
+      // The token expires on its own; leaving the athlete signed in would be
+      // the worse failure.
+    } finally {
+      await discardSession();
+      setUser(null);
+    }
+  },
+};
