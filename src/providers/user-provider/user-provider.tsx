@@ -4,21 +4,21 @@
  * Owns the live subscription to the signed-in user's profile and exposes it as a
  * single `UserState` union, so screens never have to reconcile separate
  * loading / error / missing-profile flags.
+ *
+ * The subscription mechanics live in `useRemoteSubscription`; what is left here
+ * is the one thing particular to profiles — that a document which does not exist
+ * is `absent` rather than an error, and is never written on the athlete's behalf.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { firebaseUserService } from './services/firebase-user-service';
-import type { UserDraft, UserService, UserState } from './services/user-service';
+import type { UserDraft, UserModel, UserService, UserState } from './services/user-service';
 
 import { useAuth } from '@/providers/auth-provider';
-import { breadcrumb, reportError } from '@/services/telemetry';
-
-/** The states the listener itself can produce; the rest are derived from `uid`. */
-type LoadedState = Extract<
-  UserState,
-  { status: 'ready' } | { status: 'absent' } | { status: 'error' }
->;
+import { useRemoteSubscription } from '@/providers/shared/remote-state';
+import type { Subscribe } from '@/providers/shared/remote-state';
+import { breadcrumb } from '@/services/telemetry';
 
 type UserContextValue = {
   state: UserState;
@@ -37,34 +37,22 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  /** Whatever the listener has delivered so far; null means "nothing yet". */
-  const [loaded, setLoaded] = useState<LoadedState | null>(null);
-  const [subscribedUid, setSubscribedUid] = useState(uid);
+  // Memoised so the subscription survives a re-render: `useRemoteSubscription`
+  // treats this as a real dependency.
+  const subscribe = useCallback<Subscribe<UserModel | null>>(
+    (key, onData, onError) =>
+      service.subscribe(
+        key,
+        profile => {
+          breadcrumb(profile ? `user: profile ready (${key})` : `user: profile absent (${key})`);
+          onData(profile);
+        },
+        onError,
+      ),
+    [service],
+  );
 
-  // Adjusting state during render is React's sanctioned way to reset when an
-  // input changes. It avoids the extra commit an effect would cause, and stops
-  // the previous user's profile showing before the new listener delivers.
-  if (uid !== subscribedUid) {
-    setSubscribedUid(uid);
-    setLoaded(null);
-  }
-
-  useEffect(() => {
-    if (!uid) {
-      return;
-    }
-    return service.subscribe(
-      uid,
-      profile => {
-        setLoaded(profile ? { status: 'ready', user: profile } : { status: 'absent' });
-        breadcrumb(profile ? `user: profile ready (${uid})` : `user: profile absent (${uid})`);
-      },
-      error => {
-        setLoaded({ status: 'error', message: error.message });
-        reportError(error, 'user: subscription');
-      },
-    );
-  }, [uid, service]);
+  const remote = useRemoteSubscription(uid, subscribe, 'user: subscription');
 
   const create = useCallback(
     async (draft: UserDraft) => {
@@ -85,10 +73,19 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
   );
 
   const value = useMemo<UserContextValue>(() => {
-    // Derived rather than stored, so signedOut / loading can never disagree with `uid`.
-    const state: UserState = !uid ? { status: 'signedOut' } : (loaded ?? { status: 'loading' });
+    // Derived rather than stored, so signedOut can never disagree with `uid`.
+    // A null document is the profile-shaped case the hook cannot know about:
+    // the athlete exists in auth but has not been through profile setup.
+    const state: UserState = !remote
+      ? { status: 'signedOut' }
+      : remote.status === 'ready'
+        ? remote.data
+          ? { status: 'ready', user: remote.data }
+          : { status: 'absent' }
+        : remote;
+
     return { state, create, update };
-  }, [uid, loaded, create, update]);
+  }, [remote, create, update]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
