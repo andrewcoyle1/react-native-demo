@@ -1,228 +1,244 @@
 import { SymbolView } from 'expo-symbols';
-import type { SFSymbol } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ProgressRing } from '@/components/progress-ring';
 import { SectionScreen } from '@/components/section-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Accents, Spacing, Zones } from '@/constants/theme';
+import { formatDurationWords } from '@/domain/format';
+import { addDays, daysBetween, toDateKey, type DateKey } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  toDisciplineSummaries,
+  toPlannedDays,
+  toWeekTotals,
+  type PlannedItemProps,
+} from '@/presenters/plan-week-presenter';
+import { ActivityWindowProvider, useActivityWindow } from '@/providers/activities-provider';
+import { SessionsProvider, useSessions } from '@/providers/sessions-provider';
+import { useTraining, type PlanModel } from '@/providers/training-provider';
+import { services } from '@/services/container';
+
+/** How far a week travels as it leaves, as a fraction of the screen width. */
+const TravelFraction = 0.28;
+
+/** Past this much of a drag — or this much speed — the week commits. */
+const CommitFraction = 0.2;
+const CommitVelocity = 500;
+
+/** Both slices render an empty week until they are ready; neither blocks. */
+function sessionsOf(state: ReturnType<typeof useSessions>['state']) {
+  return state.status === 'ready' ? state.data : [];
+}
+
+function activitiesOf(state: ReturnType<typeof useActivityWindow>['state']) {
+  return state.status === 'ready' ? state.data : [];
+}
+
+/** The Monday of the week `date` falls in. */
+function mondayOf(date: Date): DateKey {
+  // getDay is 0 on Sunday, which belongs to the week that began six days back.
+  return addDays(toDateKey(date), -((date.getDay() + 6) % 7));
+}
+
+/** Which week of the plan a Monday is, 0-based, or null outside the plan. */
+function weekIndexOf(plan: PlanModel | null, weekStart: DateKey): number | null {
+  if (!plan) {
+    return null;
+  }
+  const index = Math.floor(daysBetween(mondayOf(new Date(`${plan.startDate}T00:00:00`)), weekStart) / 7);
+  return index >= 0 && index < plan.weeks ? index : null;
+}
 
 /**
- * The week as planned against the week as done. Placeholder until the plan
- * service lands, in the same arrangement as `sample-week`.
+ * Owns the week being shown, and mounts the two windowed reads over it.
+ *
+ * The providers live here rather than in the tab's layout because stepping a
+ * week has to change the window they read — a provider above this component
+ * could not see the state that changes.
  */
-const DISCIPLINES = [
-  { id: 'swim', icon: 'figure.pool.swim' as SFSymbol, accent: Zones.swim, done: '1 hr 57 min', planned: '2 hr 33 min', progress: 0.77 },
-  { id: 'ride', icon: 'bicycle' as SFSymbol, accent: Zones.ride, done: '1 hr 31 min', planned: '3 hr 15 min', progress: 0.47 },
-  { id: 'run', icon: 'figure.run' as SFSymbol, accent: Zones.easy, done: '58 min', planned: '2 hr 18 min', progress: 0.42 },
-];
-
-type PlannedItem = {
-  id: string;
-  title: string;
-  icon: SFSymbol;
-  accent: string;
-  /** Planned figures, shown under the title. */
-  target: string;
-  status: 'done' | 'missed' | 'none';
-  /** A recurring commitment rather than a session the plan generated. */
-  commitment?: boolean;
-  /** The activity that satisfied it, once one has been matched. */
-  actual?: { at: string; title: string; stats: string[] };
-};
-
-type PlannedDay = { id: string; weekday: string; day: string; items: PlannedItem[] };
-
-const DAYS: PlannedDay[] = [
-  {
-    id: 'mon-7',
-    weekday: 'Mon',
-    day: '7',
-    items: [
-      {
-        id: 'mon-run',
-        title: '25 min Easy Run w 4 × 15s Strides',
-        icon: 'figure.run',
-        accent: Zones.hard,
-        target: '25 MIN    4.2 KM',
-        status: 'done',
-        actual: {
-          at: '17:20',
-          title: 'Stamina: 25 min Easy Run w 4 × 15s Strides',
-          stats: ['25:06', '4.4 KM', '5:43/KM'],
-        },
-      },
-      {
-        id: 'mon-swim',
-        title: 'Chest Pressure Cooker (8 rounds)',
-        icon: 'figure.pool.swim',
-        accent: Zones.swim,
-        target: '57 MIN    2700 M',
-        status: 'missed',
-      },
-    ],
-  },
-  {
-    id: 'tue-8',
-    weekday: 'Tue',
-    day: '8',
-    items: [
-      {
-        id: 'tue-gym',
-        title: 'Weight Training',
-        icon: 'dumbbell',
-        accent: '#9AA4AE',
-        target: 'GYM SESSION',
-        status: 'done',
-        commitment: true,
-        actual: { at: '10:47', title: 'Lower', stats: ['1:04:30'] },
-      },
-      {
-        id: 'tue-ride',
-        title: '45 min Easy Ride',
-        icon: 'bicycle',
-        accent: Zones.ride,
-        target: '45 MIN    16.6 KM',
-        status: 'done',
-        actual: {
-          at: '09:34',
-          title: 'Stamina: 45 min Easy Ride',
-          stats: ['45:36', '19.0 KM', '25.0 KM/H'],
-        },
-      },
-    ],
-  },
-  {
-    id: 'wed-9',
-    weekday: 'Wed',
-    day: '9',
-    items: [
-      {
-        id: 'wed-swim',
-        title: 'Chest Pressure Cooker (8 rounds)',
-        icon: 'figure.pool.swim',
-        accent: Zones.swim,
-        target: '57 MIN    2700 M',
-        status: 'done',
-        actual: {
-          at: '11:51',
-          title: 'Stamina: Chest Pressure Cooker (8 rounds)',
-          stats: ['1:30:45', '2700 M', '2:19/100M'],
-        },
-      },
-      {
-        id: 'wed-run',
-        title: '12 × 2 min Fast Intervals',
-        icon: 'figure.run',
-        accent: Zones.hard,
-        target: '1 HR 8 MIN    12.9 KM',
-        status: 'done',
-        actual: {
-          at: '13:57',
-          title: 'Stamina: 6 × 2 min Fast Intervals',
-          stats: ['33:03', '5.9 KM', '5:36/KM'],
-        },
-      },
-    ],
-  },
-  {
-    id: 'thu-10',
-    weekday: 'Thu',
-    day: '10',
-    items: [
-      {
-        id: 'thu-gym',
-        title: 'Weight Training',
-        icon: 'dumbbell',
-        accent: '#9AA4AE',
-        target: 'GYM SESSION',
-        status: 'none',
-        commitment: true,
-      },
-      {
-        id: 'thu-ride',
-        title: '50 min Aerobic Ride',
-        icon: 'bicycle',
-        accent: Zones.ride,
-        target: '50 MIN    20.4 KM',
-        status: 'none',
-      },
-    ],
-  },
-  {
-    id: 'fri-11',
-    weekday: 'Fri',
-    day: '11',
-    items: [
-      {
-        id: 'fri-gym',
-        title: 'Weight Training',
-        icon: 'dumbbell',
-        accent: '#9AA4AE',
-        target: 'GYM SESSION',
-        status: 'none',
-        commitment: true,
-      },
-      {
-        id: 'fri-swim',
-        title: 'Relaxed Floating = Relaxed Swimming (2 rounds)',
-        icon: 'figure.pool.swim',
-        accent: Zones.swim,
-        target: '38 MIN    1700 M',
-        status: 'none',
-      },
-    ],
-  },
-  {
-    id: 'sat-12',
-    weekday: 'Sat',
-    day: '12',
-    items: [
-      {
-        id: 'sat-run',
-        title: '45 min Long Run',
-        icon: 'figure.run',
-        accent: Zones.hard,
-        target: '45 MIN    7.7 KM',
-        status: 'none',
-      },
-    ],
-  },
-  {
-    id: 'sun-13',
-    weekday: 'Sun',
-    day: '13',
-    items: [
-      {
-        id: 'sun-ride',
-        title: '1 hr 40 min Steady Long Ride',
-        icon: 'bicycle',
-        accent: Zones.ride,
-        target: '1 HR 40 MIN    42.1 KM',
-        status: 'none',
-      },
-    ],
-  },
-];
-
-/**
- * One section per month. The month is what pins while its own days scroll —
- * the weekday and date stay in each row's gutter, beside the cards they label.
- */
-const MONTHS = [{ id: '2026-09', meta: '2026  SEP', data: DAYS }];
-
 export default function PlanScreen() {
   useScreenTracking('Plan');
 
-  const theme = useTheme();
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  const window = useMemo(() => ({ from: weekStart, to: addDays(weekStart, 6) }), [weekStart]);
 
   return (
-    <SectionScreen
-      sections={MONTHS}
-      keyExtractor={(day: PlannedDay) => day.id}
+    <SessionsProvider window={window} service={services.sessions}>
+      <ActivityWindowProvider window={window} service={services.activities}>
+        <PlanWeekView weekStart={weekStart} onChangeWeek={setWeekStart} />
+      </ActivityWindowProvider>
+    </SessionsProvider>
+  );
+}
+
+function PlanWeekView({
+  weekStart,
+  onChangeWeek,
+}: {
+  weekStart: DateKey;
+  onChangeWeek: (weekStart: DateKey) => void;
+}) {
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+
+  const { state: sessionState } = useSessions();
+  const { state: activityState } = useActivityWindow();
+  const { plans } = useTraining();
+
+  // The plan under way names the week stepper. Null until it has loaded.
+  const currentPlan =
+    plans.status === 'ready' ? (plans.data.find(plan => plan.status === 'current') ?? null) : null;
+
+  const weekIndex = weekIndexOf(currentPlan, weekStart);
+
+  // Stepping is bounded by the plan when there is one. With no plan loaded there
+  // is nothing to bound it by, so both directions stay open.
+  const canGoBack = currentPlan === null || (weekIndex !== null && weekIndex > 0);
+  const canGoForward =
+    currentPlan === null || (weekIndex !== null && weekIndex < currentPlan.weeks - 1);
+
+  /**
+   * How far the week is displaced, in points.
+   *
+   * Drives both the drag and the commit, so a swipe that becomes a step never
+   * jumps: the finger hands the week over to the animation at whatever offset it
+   * had reached.
+   */
+  const translateX = useSharedValue(0);
+
+  /*
+   * These four are plain functions rather than `useCallback`/`useMemo` values.
+   * A Reanimated shared value is stable for the life of the component but must
+   * not appear in a dependency array — the compiler's rules then read every
+   * write below as mutating a hook argument — and leaving it out trips
+   * exhaustive-deps instead. Without the memo hooks the conflict disappears, and
+   * the React Compiler memoises them anyway.
+   */
+  const step = (direction: number) => {
+    onChangeWeek(addDays(weekStart, 7 * direction));
+  };
+
+  /**
+   * Sends the current week out and brings the next one in.
+   *
+   * `direction` is +1 for the week ahead, which leaves to the left and arrives
+   * from the right. The week only changes once the outgoing half has finished,
+   * so the content never swaps under a stationary view.
+   */
+  const commit = (direction: number) => {
+    // Guarded here as well as at the callers, so the bound is stated once and
+    // holds however the step was asked for.
+    if (direction === 1 ? !canGoForward : !canGoBack) {
+      return;
+    }
+
+    const travel = width * TravelFraction;
+
+    translateX.value = withTiming(
+      -direction * travel,
+      { duration: 160, easing: Easing.in(Easing.cubic) },
+      finished => {
+        if (!finished) {
+          return;
+        }
+        runOnJS(step)(direction);
+        translateX.value = direction * travel;
+        translateX.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
+      },
+    );
+  };
+
+  const settle = () => {
+    translateX.value = withSpring(0, { damping: 20, stiffness: 220 });
+  };
+
+  const pan = Gesture.Pan()
+    // Only a clearly horizontal drag takes the gesture; anything with a vertical
+    // intent is left to the list underneath.
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-20, 20])
+    .onUpdate(event => {
+      const allowed = event.translationX > 0 ? canGoBack : canGoForward;
+      // Dragging towards a week that does not exist still moves, but heavily
+      // damped, so the edge of the plan is felt rather than simply dead.
+      translateX.value = allowed ? event.translationX * 0.5 : event.translationX * 0.12;
+    })
+    .onEnd(event => {
+      const direction = event.translationX < 0 ? 1 : -1;
+      const allowed = direction === 1 ? canGoForward : canGoBack;
+      const far = Math.abs(event.translationX) > width * CommitFraction;
+      const fast = Math.abs(event.velocityX) > CommitVelocity;
+
+      if (allowed && (far || fast)) {
+        runOnJS(commit)(direction);
+      } else {
+        runOnJS(settle)();
+      }
+    });
+
+  const sliding = useAnimatedStyle(() => {
+    const travel = width * TravelFraction;
+    // Fades as it travels, so the swap at the far end is hidden — the same
+    // crossfade the tab wipe uses.
+    const progress = Math.min(Math.abs(translateX.value) / travel, 1);
+
+    return {
+      transform: [{ translateX: translateX.value }],
+      opacity: 1 - progress * 0.85,
+    };
+  });
+
+  const summaries = useMemo(
+    () => toDisciplineSummaries(sessionsOf(sessionState), activitiesOf(activityState)),
+    [sessionState, activityState],
+  );
+
+  /** One section per month, which is how the design groups the day rows. */
+  const sections = useMemo(() => {
+    const days = toPlannedDays(sessionsOf(sessionState), activitiesOf(activityState), 'metric');
+    if (days.length === 0) {
+      return [];
+    }
+
+    const first = new Date(`${days[0].id}T00:00:00`);
+    const label = `${first.getFullYear()}  ${first
+      .toLocaleDateString('en-US', { month: 'short' })
+      .toUpperCase()}`;
+
+    return [{ id: days[0].id.slice(0, 7), meta: label, data: days }];
+  }, [sessionState, activityState]);
+
+  /** The week's totals — the three rings added up. */
+  const total = useMemo(() => {
+    const { plannedSeconds, doneSeconds } = toWeekTotals(
+      sessionsOf(sessionState),
+      activitiesOf(activityState),
+    );
+    return { planned: formatDurationWords(plannedSeconds), done: formatDurationWords(doneSeconds) };
+  }, [sessionState, activityState]);
+
+  return (
+    <GestureDetector gesture={pan}>
+      {/* The whole week slides, stepper included: the week is the unit that
+          moves, and leaving the controls behind would read as the content
+          changing under them rather than the week changing. */}
+      <Animated.View style={[styles.container, sliding]}>
+        <SectionScreen
+          sections={sections}
+      keyExtractor={day => day.id}
       renderItem={day => (
         <View style={styles.day}>
           {/* The date gutter and its connector run the height of the day, so a
@@ -269,7 +285,11 @@ export default function PlanScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Previous week"
-              hitSlop={Spacing.two}>
+              accessibilityState={{ disabled: !canGoBack }}
+              disabled={!canGoBack}
+              onPress={() => commit(-1)}
+              hitSlop={Spacing.two}
+              style={({ pressed }) => [!canGoBack && styles.arrowDisabled, pressed && styles.pressed]}>
               <SymbolView name="chevron.left" size={22} tintColor={theme.textSecondary} />
             </Pressable>
 
@@ -277,22 +297,22 @@ export default function PlanScreen() {
               <View style={styles.weekMeta}>
                 <SymbolView name="clock" size={14} tintColor={Accents.info} />
                 <ThemedText style={[styles.metaText, { color: Accents.info }]}>
-                  PREP plan
+                  {currentPlan ? `${currentPlan.name.split(' ')[0].toUpperCase()} plan` : ''}
                 </ThemedText>
               </View>
 
               <ThemedText style={styles.weekTitle}>
-                Week 1
+                Week {weekIndex !== null ? weekIndex + 1 : '—'}
                 <ThemedText themeColor="textSecondary" style={styles.weekTotal}>
                   {' '}
-                  /24
+                  /{currentPlan?.weeks ?? '—'}
                 </ThemedText>
               </ThemedText>
 
               <View style={styles.weekMeta}>
                 <SymbolView name="chart.line.uptrend.xyaxis" size={14} tintColor={Zones.hard} />
                 <ThemedText style={[styles.metaText, { color: Zones.hard }]}>
-                  BUILD phase
+                  {currentPlan?.phase ? `${currentPlan.phase.split(' ')[0].toUpperCase()} phase` : ''}
                 </ThemedText>
               </View>
             </View>
@@ -300,7 +320,14 @@ export default function PlanScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Next week"
-              hitSlop={Spacing.two}>
+              accessibilityState={{ disabled: !canGoForward }}
+              disabled={!canGoForward}
+              onPress={() => commit(1)}
+              hitSlop={Spacing.two}
+              style={({ pressed }) => [
+                !canGoForward && styles.arrowDisabled,
+                pressed && styles.pressed,
+              ]}>
               <SymbolView name="chevron.right" size={22} tintColor={theme.textSecondary} />
             </Pressable>
           </View>
@@ -309,7 +336,7 @@ export default function PlanScreen() {
             type="backgroundElement"
             style={[styles.summary, { borderColor: theme.backgroundSelected }]}>
             <View style={styles.rings}>
-              {DISCIPLINES.map(discipline => (
+              {summaries.map(discipline => (
                 <View key={discipline.id} style={styles.ring}>
                   <ProgressRing
                     progress={discipline.progress}
@@ -330,7 +357,7 @@ export default function PlanScreen() {
             <View style={[styles.total, { borderTopColor: theme.backgroundSelected }]}>
               <SymbolView name="clock" size={16} tintColor={Accents.recovery} />
               <ThemedText themeColor="textSecondary" style={styles.totalText}>
-                TOTAL: 4 HR 28 MIN / 8 HR 6 MIN
+                TOTAL: {total.done.toUpperCase()} / {total.planned.toUpperCase()}
               </ThemedText>
               <Pressable
                 accessibilityRole="button"
@@ -346,7 +373,9 @@ export default function PlanScreen() {
           </ThemedView>
         </View>
       }>
-    </SectionScreen>
+        </SectionScreen>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -372,7 +401,7 @@ function withUnits(text: string) {
   );
 }
 
-function PlanRow({ item }: { item: PlannedItem }) {
+function PlanRow({ item }: { item: PlannedItemProps }) {
   const theme = useTheme();
 
   return (
@@ -440,6 +469,14 @@ function PlanRow({ item }: { item: PlannedItem }) {
 }
 
 const styles = StyleSheet.create({
+  /* Fills the tab beneath the sliding week, so the page colour shows through
+     rather than the tab behind it as the week fades. */
+  container: {
+    flex: 1,
+  },
+  arrowDisabled: {
+    opacity: 0.3,
+  },
   /* The list's rows and headers carry their own gutter, so the list header has
      to bring its own rather than inheriting one from a shared container. */
   listHeader: {

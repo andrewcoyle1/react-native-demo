@@ -5,37 +5,79 @@
  * `_layout.tsx` injects these into the providers, so the wiring stays visible
  * rather than hidden behind defaults.
  */
-import { isMock } from '@/config/environment';
+import { isApi, isMock } from '@/config/environment';
+import { apiActivitiesService } from '@/providers/activities-provider/services/api-activities-service';
+import { firebaseActivitiesService } from '@/providers/activities-provider/services/firebase-activities-service';
+import { mockActivitiesService } from '@/providers/activities-provider/services/mock-activities-service';
+import type { ActivitiesService } from '@/providers/activities-provider/services/activities-service';
 import type { AuthService } from '@/providers/auth-provider/services/auth-service';
+import { apiAuthService } from '@/providers/auth-provider/services/api-auth-service';
 import { firebaseAuthService } from '@/providers/auth-provider/services/firebase-auth-service';
 import { mockAuthService } from '@/providers/auth-provider/services/mock-auth-service';
 import { firebaseNotesService } from '@/providers/notes-provider/services/firebase-notes-service';
 import { mockNotesService } from '@/providers/notes-provider/services/mock-notes-service';
 import type { NotesService } from '@/providers/notes-provider/services/notes-service';
+import { apiOnboardingService } from '@/services/onboarding/api-onboarding-service';
+import { firebaseOnboardingService } from '@/services/onboarding/firebase-onboarding-service';
+import { mockOnboardingService } from '@/services/onboarding/mock-onboarding-service';
+import type { OnboardingService } from '@/services/onboarding/onboarding-service';
+import { apiSessionsService } from '@/providers/sessions-provider/services/api-sessions-service';
+import { firebaseSessionsService } from '@/providers/sessions-provider/services/firebase-sessions-service';
+import { mockSessionsService } from '@/providers/sessions-provider/services/mock-sessions-service';
+import type { SessionsService } from '@/providers/sessions-provider/services/sessions-service';
+import { apiTrainingService } from '@/providers/training-provider/services/api-training-service';
+import { firebaseTrainingService } from '@/providers/training-provider/services/firebase-training-service';
+import { mockTrainingService } from '@/providers/training-provider/services/mock-training-service';
+import type { TrainingService } from '@/providers/training-provider/services/training-service';
+import { apiUserService } from '@/providers/user-provider/services/api-user-service';
 import { firebaseUserService } from '@/providers/user-provider/services/firebase-user-service';
 import { mockUserService } from '@/providers/user-provider/services/mock-user-service';
 import type { UserService } from '@/providers/user-provider/services/user-service';
 import { createFirebaseTelemetryService } from '@/services/telemetry/firebase-telemetry-service';
 import { mockTelemetryService } from '@/services/telemetry/mock-telemetry-service';
+import { apiTrendsService } from '@/providers/trends-provider/services/api-trends-service';
+import { firebaseTrendsService } from '@/providers/trends-provider/services/firebase-trends-service';
+import { mockTrendsService } from '@/providers/trends-provider/services/mock-trends-service';
+import type { TrendsService } from '@/providers/trends-provider/services/trends-service';
 import type { TelemetryService } from '@/services/telemetry/telemetry-service';
 
 export type Services = {
+  activities: ActivitiesService;
   auth: AuthService;
   notes: NotesService;
+  onboarding: OnboardingService;
+  sessions: SessionsService;
+  training: TrainingService;
+  trends: TrendsService;
   user: UserService;
   telemetry: TelemetryService;
 };
 
+/*
+ * Three backends now. `api` is being built out one slice at a time, so it takes
+ * its own auth service and keeps Firebase for everything not yet ported —
+ * which is what lets the app stay runnable throughout the move.
+ */
 export const services: Services = isMock
   ? {
+      activities: mockActivitiesService,
       auth: mockAuthService,
       notes: mockNotesService,
+      onboarding: mockOnboardingService,
+      sessions: mockSessionsService,
+      training: mockTrainingService,
+      trends: mockTrendsService,
       user: mockUserService,
       telemetry: mockTelemetryService,
     }
   : {
-      auth: firebaseAuthService,
+      activities: isApi ? apiActivitiesService : firebaseActivitiesService,
+      auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
-      user: firebaseUserService,
+      onboarding: isApi ? apiOnboardingService : firebaseOnboardingService,
+      sessions: isApi ? apiSessionsService : firebaseSessionsService,
+      training: isApi ? apiTrainingService : firebaseTrainingService,
+      trends: isApi ? apiTrendsService : firebaseTrendsService,
+      user: isApi ? apiUserService : firebaseUserService,
       telemetry: createFirebaseTelemetryService(),
     };

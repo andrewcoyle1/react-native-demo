@@ -4,43 +4,76 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { SectionCard } from '@/components/section-card';
 import { StatTile } from '@/components/stat-tile';
-import { Accents, PlanAccent, Spacing, Zones } from '@/constants/theme';
+import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
+import { formatDistance, formatDurationParts } from '@/domain/format';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import { useTrends, type TrendsModel, type Volume } from '@/providers/trends-provider';
+
+/** Zeroes while the figures load, so the layout never jumps. */
+const EMPTY: TrendsModel = {
+  planned: { durationSeconds: 0, distanceMetres: 0 },
+  completed: { durationSeconds: 0, distanceMetres: 0 },
+  fitness: { value: 0, direction: 'flat', change: 0 },
+  fatigue: { value: 0, direction: 'flat', change: 0 },
+  form: { value: 0, direction: 'flat', change: 0 },
+};
+
+/** A volume as the two figures the card shows side by side. */
+function toFigures(volume: Volume) {
+  const time = formatDurationParts(volume.durationSeconds);
+  const distance = formatDistance(volume.distanceMetres, 'metric');
+
+  return {
+    time: {
+      value: time.value,
+      unit: time.unit,
+      extra: time.extra?.value,
+      extraUnit: time.extra?.unit,
+    },
+    distance: { value: distance.value, unit: distance.unit },
+  };
+}
 
 /**
- * Placeholder figures until the metrics service lands, in the same arrangement
- * as `sample-week`: the screen is about layout, the numbers arrive later.
+ * Form is read the opposite way round from the other two.
+ *
+ * Rising fatigue is a warning and rising fitness is good news, but rising form
+ * means fresh — so the accent follows the meaning rather than the arrow.
  */
-const GOALS = {
-  plannedTime: { value: '8', unit: 'hr', extra: '6', extraUnit: 'min' },
-  plannedDistance: { value: '110.9', unit: 'km' },
-  completedTime: { value: '4', unit: 'hr', extra: '28', extraUnit: 'min' },
-  completedDistance: { value: '52.1', unit: 'km' },
-};
+function formAccent(value: number): string {
+  return value >= 0 ? ActivePlanAccent : Accents.recovery;
+}
 
 export default function TrendsScreen() {
   useScreenTracking('Trends');
 
+  const { state } = useTrends();
+  const trends = state.status === 'ready' ? state.data : EMPTY;
+
+  const planned = toFigures(trends.planned);
+  const completed = toFigures(trends.completed);
+
   return (
     <Screen>
+      {state.status === 'error' ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {state.message}
+        </ThemedText>
+      ) : null}
 
-      <SectionCard title="Training Goals" icon="chart.line.uptrend.xyaxis" iconAccent={PlanAccent}>
+      <SectionCard title="Training Goals" icon="chart.line.uptrend.xyaxis" iconAccent={ActivePlanAccent}>
         {/* Planned and completed sit side by side so the shortfall is read as a
             comparison rather than as two separate figures. */}
         <View style={styles.columns}>
           <View style={styles.column}>
-            <GoalFigures
-              label="Planned"
-              time={GOALS.plannedTime}
-              distance={GOALS.plannedDistance}
-            />
+            <GoalFigures label="Planned" time={planned.time} distance={planned.distance} />
           </View>
           <View style={styles.column}>
             <GoalFigures
               label="Completed"
-              time={GOALS.completedTime}
-              distance={GOALS.completedDistance}
-              accent={PlanAccent}
+              time={completed.time}
+              distance={completed.distance}
+              accent={ActivePlanAccent}
             />
           </View>
         </View>
@@ -49,18 +82,19 @@ export default function TrendsScreen() {
       <SectionCard
         title="Fitness, Fatigue & Form"
         icon="heart.text.square"
-        iconAccent={PlanAccent}
-        badge="Optimal"
-        badgeAccent={PlanAccent}>
+        iconAccent={ActivePlanAccent}
+        /* Fresh when form is positive: fitness carried without the fatigue. */
+        badge={trends.form.value >= 0 ? 'Fresh' : 'Loaded'}
+        badgeAccent={formAccent(trends.form.value)}>
         <View style={styles.columns}>
           <View style={styles.column}>
             <StatTile
               centred
               icon="battery.25"
               label="Fatigue"
-              value="68"
+              value={`${trends.fatigue.value}`}
               accent={Accents.speed}
-              trend="up"
+              trend={trends.fatigue.direction}
             />
           </View>
           <View style={styles.column}>
@@ -68,9 +102,9 @@ export default function TrendsScreen() {
               centred
               icon="heart"
               label="Fitness"
-              value="38"
-              accent={PlanAccent}
-              trend="up"
+              value={`${trends.fitness.value}`}
+              accent={ActivePlanAccent}
+              trend={trends.fitness.direction}
             />
           </View>
           <View style={styles.column}>
@@ -78,14 +112,17 @@ export default function TrendsScreen() {
               centred
               icon="paperplane"
               label="Form"
-              value="-30"
-              accent={Accents.recovery}
-              trend="down"
+              value={`${trends.form.value}`}
+              accent={formAccent(trends.form.value)}
+              trend={trends.form.direction}
             />
           </View>
         </View>
       </SectionCard>
 
+      {/* Still hardcoded: VO2 max and threshold pace are athlete attributes
+          rather than aggregates, so they belong on the profile alongside heart
+          rate range — not in this endpoint. */}
       <SectionCard title="Run Threshold & VO2 Max" icon="figure.run" iconAccent={Zones.hard}>
         <View style={styles.columns}>
           <View style={styles.column}>

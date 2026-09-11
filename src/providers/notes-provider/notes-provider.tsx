@@ -3,19 +3,18 @@
  *
  * Owns the live subscription for the signed-in user and exposes the list as a
  * single `NotesState` union, so screens never have to reconcile separate
- * loading / error / data flags.
+ * loading / error / data flags. The subscription mechanics live in
+ * `useRemoteSubscription`.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { firebaseNotesService } from './services/firebase-notes-service';
-import type { NotesService, NotesState } from './services/notes-service';
+import type { Note, NotesService, NotesState } from './services/notes-service';
 
 import { useAuth } from '@/providers/auth-provider';
-import { reportError } from '@/services/telemetry';
-
-/** The states the listener itself can produce; the rest are derived from `uid`. */
-type LoadedState = Extract<NotesState, { status: 'ready' } | { status: 'error' }>;
+import { useRemoteSubscription } from '@/providers/shared/remote-state';
+import type { Subscribe } from '@/providers/shared/remote-state';
 
 type NotesContextValue = {
   state: NotesState;
@@ -34,31 +33,14 @@ export function NotesProvider({ children, service = firebaseNotesService }: Note
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
-  /** Whatever the listener has delivered so far; null means "nothing yet". */
-  const [loaded, setLoaded] = useState<LoadedState | null>(null);
-  const [subscribedUid, setSubscribedUid] = useState(uid);
+  // Memoised so the subscription survives a re-render: `useRemoteSubscription`
+  // treats this as a real dependency.
+  const subscribe = useCallback<Subscribe<Note[]>>(
+    (key, onData, onError) => service.subscribe(key, onData, onError),
+    [service],
+  );
 
-  // Adjusting state during render is React's sanctioned way to reset when an
-  // input changes. It avoids the extra commit an effect would cause, and stops
-  // the previous user's notes showing before the new listener delivers.
-  if (uid !== subscribedUid) {
-    setSubscribedUid(uid);
-    setLoaded(null);
-  }
-
-  useEffect(() => {
-    if (!uid) {
-      return;
-    }
-    return service.subscribe(
-      uid,
-      notes => setLoaded({ status: 'ready', notes }),
-      error => {
-        setLoaded({ status: 'error', message: error.message });
-        reportError(error, 'notes: subscription');
-      },
-    );
-  }, [uid, service]);
+  const remote = useRemoteSubscription(uid, subscribe, 'notes: subscription');
 
   const add = useCallback(
     async (text: string) => {
@@ -79,10 +61,15 @@ export function NotesProvider({ children, service = firebaseNotesService }: Note
   );
 
   const value = useMemo<NotesContextValue>(() => {
-    // Derived rather than stored, so signedOut / loading can never disagree with `uid`.
-    const state: NotesState = !uid ? { status: 'signedOut' } : (loaded ?? { status: 'loading' });
+    // Derived rather than stored, so signedOut can never disagree with `uid`.
+    const state: NotesState = !remote
+      ? { status: 'signedOut' }
+      : remote.status === 'ready'
+        ? { status: 'ready', notes: remote.data }
+        : remote;
+
     return { state, add, remove };
-  }, [uid, loaded, add, remove]);
+  }, [remote, add, remove]);
 
   return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
 }

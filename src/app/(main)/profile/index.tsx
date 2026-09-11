@@ -2,26 +2,25 @@ import Constants from 'expo-constants';
 import { SymbolView } from 'expo-symbols';
 import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
-import { ProfileCard, type RaceTarget } from '@/components/profile-card';
+import { ProfileCard } from '@/components/profile-card';
 import { Screen } from '@/components/screen';
 import { SettingsGroup } from '@/components/settings-group';
 import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Accents, PlanAccent, Spacing, Zones } from '@/constants/theme';
+import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import {
+  formatRaceDate,
+  formatRaceTarget,
+  toRaceTargets,
+} from '@/presenters/plan-presenter';
 import { AuthError, useAuth } from '@/providers/auth-provider';
+import { useTraining } from '@/providers/training-provider';
 import { useUser } from '@/providers/user-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
-
-/** The race being trained for. Placeholder until the plan service lands. */
-const RACE_TARGETS: RaceTarget[] = [
-  { icon: 'figure.pool.swim', accent: Zones.swim, value: '1.9', unit: 'km', alternate: '1.2 mi' },
-  { icon: 'bicycle', accent: Zones.ride, value: '90', unit: 'km', alternate: '56 mi' },
-  { icon: 'figure.run', accent: Zones.hard, value: '21.1', unit: 'km', alternate: '13.1 mi' },
-];
 
 type Social = { id: string; icon: SFSymbol; gradient: string; label: string; url: string };
 
@@ -58,12 +57,20 @@ function nameFromEmail(email: string | null) {
 export default function ProfileScreen() {
   useScreenTracking('Profile');
 
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { state } = useUser();
+  const { races, resetPlans } = useTraining();
+
+  // The goal race is the A race: the one the plans build towards.
+  const race =
+    races.status === 'ready' ? (races.data.find(item => item.priority === 'A') ?? null) : null;
 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dangerOpen, setDangerOpen] = useState(false);
+  const [resetPending, setResetPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [dangerError, setDangerError] = useState<string | null>(null);
 
   // The profile provider is the name's home; auth only knows an email, so that
   // is the fallback rather than the source. It reads as a name rather than as a
@@ -101,6 +108,67 @@ export default function ProfileScreen() {
     }
   }
 
+  function confirmResetPlans() {
+    Alert.alert(
+      'Reset Training Plans?',
+      'This deletes your current and upcoming plans and every session in them. Your races and completed activities are not affected. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: handleResetPlans },
+      ],
+    );
+  }
+
+  async function handleResetPlans() {
+    setResetPending(true);
+    setDangerError(null);
+    try {
+      await resetPlans();
+      trackEvent('account_action_succeeded', { action: 'resetPlans' });
+      Alert.alert('Training plans reset', 'Head to the Plan tab to generate a new one.');
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : 'Something went wrong. Please try again.';
+      setDangerError(message);
+      reportError(caught, 'training: resetPlans');
+      trackEvent('account_action_failed', { action: 'resetPlans' });
+    } finally {
+      setResetPending(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete Account?',
+      'This permanently deletes your account and every piece of data attached to it — your plans, sessions, activities and races. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteAccount },
+      ],
+    );
+  }
+
+  async function handleDeleteAccount() {
+    setDeletePending(true);
+    setDangerError(null);
+    try {
+      await deleteAccount();
+      trackEvent('account_action_succeeded', { action: 'deleteAccount' });
+      // No navigation needed: clearing `user` flips the root guard, exactly as
+      // signing out does — the account this screen belongs to no longer exists.
+    } catch (caught) {
+      const failure =
+        caught instanceof AuthError
+          ? caught
+          : new AuthError('auth/unknown', 'Something went wrong.');
+      setDangerError(failure.message);
+      reportError(caught, 'auth: deleteAccount');
+      trackEvent('account_action_failed', { action: 'deleteAccount', code: failure.code });
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
   // (main) only mounts when a user exists; this narrows the type.
   if (!user) {
     return null;
@@ -108,16 +176,19 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ProfileCard
-        name={name}
-        race="IRONMAN 70.3 Luxembourg"
-        place="Moselle, Luxembourg 🇱🇺"
-        date="11 July 2027"
-        target="5H 08M"
-        targets={RACE_TARGETS}
-        /* Remote test photo, to prove the wiring. Swap for real artwork. */
-        artwork="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=800"
-      />
+      {/* Only rendered once the goal race is known: the card is entirely about
+          that race, so there is nothing to show in its place. */}
+      {race ? (
+        <ProfileCard
+          name={name}
+          race={race.name}
+          place={race.place}
+          date={formatRaceDate(race)}
+          target={formatRaceTarget(race) ?? 'No goal set'}
+          targets={toRaceTargets(race, 'metric')}
+          artwork={race.artworkUrl ?? undefined}
+        />
+      ) : null}
 
       <SettingsGroup label="Fitness metrics">
         <SettingsRow
@@ -226,7 +297,7 @@ export default function ProfileScreen() {
       <SettingsGroup label="Misc">
         <SettingsRow
           icon="play.circle"
-          iconAccent={PlanAccent}
+          iconAccent={ActivePlanAccent}
           title="Meet Your Coaches"
           subtitle="Watch coach introductions"
         />
@@ -326,17 +397,25 @@ export default function ProfileScreen() {
               icon="exclamationmark.circle"
               iconAccent={Accents.equipment}
               accent={Accents.equipment}
-              title="Reset Training Plans"
-              subtitle="Resets your training plans and restarts your free trial. Cannot be undone."
+              title={resetPending ? 'Resetting…' : 'Reset Training Plans'}
+              subtitle="Resets your training plans so a new one can be generated. Cannot be undone."
+              onPress={resetPending || deletePending ? undefined : confirmResetPlans}
             />
             <SettingsRow
               icon="exclamationmark.circle"
               iconAccent={Accents.speed}
               accent={Accents.speed}
-              title="Delete Account"
+              title={deletePending ? 'Deleting…' : 'Delete Account'}
               subtitle="Permanently delete your account and all your data. Cannot be undone."
+              onPress={resetPending || deletePending ? undefined : confirmDeleteAccount}
             />
           </SettingsGroup>
+        ) : null}
+
+        {dangerError ? (
+          <ThemedText style={[styles.error, { color: Accents.speed }]} accessibilityRole="alert">
+            {dangerError}
+          </ThemedText>
         ) : null}
       </ThemedView>
     </Screen>

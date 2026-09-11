@@ -8,14 +8,15 @@
 // It does two jobs: install the app-wide providers, and decide which half of the
 // app you are allowed into.
 // ─────────────────────────────────────────────────────────────────────────────
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { NotesProvider } from '@/providers/notes-provider';
-import { UserProvider } from '@/providers/user-provider';
+import { UserProvider, useUser } from '@/providers/user-provider';
 import { services } from '@/services/container';
 
 // Runs once on import, before any component renders. Keeps the native splash on
@@ -26,33 +27,62 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider service={services.auth}>
-        {/* Below AuthProvider: both read the signed-in uid from it. */}
-        <UserProvider service={services.user}>
-          <NotesProvider service={services.notes}>
-            <RootNavigator />
-          </NotesProvider>
-        </UserProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    /* Required by react-native-gesture-handler v2 for any GestureDetector below
+       it — the Plan tab's week swipe is the first of them. */
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AuthProvider service={services.auth}>
+          {/* Below AuthProvider: both read the signed-in uid from it. */}
+          <UserProvider service={services.user}>
+            <NotesProvider service={services.notes}>
+              <RootNavigator />
+            </NotesProvider>
+          </UserProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
 /**
- * The gate. Signed-out users get the onboarding flow; signed-in users get the
- * tabs — and nothing else is even registered with the navigator.
+ * The gate. Signed-out users get the onboarding flow; a signed-in user with no
+ * profile yet gets the personalisation flow; everyone else gets the tabs — and
+ * nothing else is even registered with the navigator.
  */
 function RootNavigator() {
   const { user, initializing } = useAuth();
+  const { state: profile } = useUser();
 
-  // Render nothing until auth resolves. The splash overlay is a child of this
-  // component, so it does not mount either — which leaves the *native* splash
-  // covering the screen and means the first thing drawn is already the correct
-  // side of the gate, with no flash of the wrong one.
-  if (initializing) {
+  /*
+   * Render nothing until both auth *and*, for a signed-in user, the profile
+   * check have resolved. The splash overlay is a child of this component, so
+   * it does not mount either — which leaves the *native* splash covering the
+   * screen and means the first thing drawn is already the correct one of the
+   * three sides, with no flash of a wrong one — including a signed-up athlete
+   * flashing into the tabs before "no profile yet" is known.
+   */
+  if (initializing || (user && profile.status === 'loading')) {
     return null;
   }
+
+  /*
+   * `GET /v1/profile` failing (a network blip on launch, say) must not read as
+   * "needs onboarding" — an established athlete would be thrown back into
+   * setup on every dropped connection. It reads as "has a profile" instead,
+   * the same way `apiAuthService` stays optimistically signed in when the
+   * server cannot be reached: the far more common case by orders of magnitude
+   * is an existing athlete, and (main)'s own screens already have their own
+   * per-slice error states for a request that keeps failing.
+   */
+  const needsSetup = !!user && profile.status === 'absent';
+
+  /*
+   * Exactly one of the three guards below is true at any moment, so this is the
+   * screen the athlete should be on right now. Every guarded-off branch
+   * redirects here, which is what `Protected` needs since the root Stack has no
+   * anchor of its own to fall back to.
+   */
+  const landing: Href = !user ? '/welcome' : needsSetup ? '/race-or-not' : '/';
 
   return (
     <>
@@ -60,16 +90,19 @@ function RootNavigator() {
       <AnimatedSplashOverlay />
 
       <Stack screenOptions={{ headerShown: false }}>
-        {/* `Protected` removes its screens from the navigator entirely when the
-            guard is false — they cannot be reached by deep link either, which a
-            merely-hidden route still could.
+        {/* expo-router 58 changed `Protected`: a screen whose guard is false is
+            no longer removed from the navigator, it is rendered as a redirect to
+            `redirectTo` (defaulting to the containing navigator's anchor — which
+            this root Stack does not declare, so it must be passed explicitly or
+            the app lands on +not-found). Deep links to a guarded screen still
+            cannot reach it; they redirect instead.
 
             Flipping a guard swaps one screen for another, which the navigator
             treats as a replace. `animationTypeForReplace` decides which way that
             replace appears to travel, so signing in reads as going forward and
             signing out as coming back. Both are set explicitly rather than left
             to the default, so neither direction is accidental. */}
-        <Stack.Protected guard={!!user}>
+        <Stack.Protected guard={!!user && !needsSetup} redirectTo={landing}>
           <Stack.Screen name="(main)" options={{ animationTypeForReplace: 'push' }} />
 
           {/* Feedback and notifications live here, above the tabs, so they can
@@ -99,15 +132,27 @@ function RootNavigator() {
             name="sheet"
             options={{
               presentation: 'formSheet',
-              headerShown: true,
-              title: 'Sheet',
-              sheetAllowedDetents: [0.4, 0.9],
+              /* No header: the sheet carries its own title, and the grabber is
+                 the only chrome the design shows. */
+              headerShown: false,
+              title: "What's new",
+              /* One large detent: the design shows the sheet just clear of the
+                 status bar, not resting at a half height. */
+              sheetAllowedDetents: [0.94],
               sheetGrabberVisible: true,
             }}
           />
         </Stack.Protected>
 
-        <Stack.Protected guard={!user}>
+        {/* A signed-up athlete with no profile yet — the personalisation flow,
+            from "Do you have a race in mind?" through the plan overview. Its
+            own screen order and progress bar are `(setup)`'s concern; this
+            gate only decides whether the athlete can reach it at all. */}
+        <Stack.Protected guard={needsSetup} redirectTo={landing}>
+          <Stack.Screen name="(setup)" options={{ animationTypeForReplace: 'push' }} />
+        </Stack.Protected>
+
+        <Stack.Protected guard={!user} redirectTo={landing}>
           <Stack.Screen name="(onboarding)" options={{ animationTypeForReplace: 'pop' }} />
         </Stack.Protected>
       </Stack>

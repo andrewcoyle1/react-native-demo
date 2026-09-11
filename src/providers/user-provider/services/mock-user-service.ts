@@ -1,14 +1,14 @@
 /**
  * In-memory `UserService` for the mock environment.
  *
- * Every uid gets a seeded profile except the anonymous one, which starts with no
- * document at all. That makes both listener branches reachable without a
- * backend: sign in with an email for `ready`, continue anonymously for `absent`.
+ * Every uid gets a seeded profile except the reserved empty account, which
+ * starts with no document at all. That makes both listener branches reachable
+ * without a backend: sign in with any email for `ready`, or with
+ * `new@example.com` for `absent`.
  */
 import type { UserDraft, UserModel, UserService } from './user-service';
 
-/** The uid `mockAuthService` assigns to anonymous sign-in. */
-const ANONYMOUS_UID = 'mock-anonymous';
+import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
 
 type Listener = (user: UserModel | null) => void;
 
@@ -18,7 +18,7 @@ const listeners = new Map<string, Set<Listener>>();
 const seeded = new Set<string>();
 
 function seed(uid: string): UserModel | null {
-  if (uid === ANONYMOUS_UID) {
+  if (uid === MOCK_EMPTY_UID) {
     return null;
   }
   const now = new Date();

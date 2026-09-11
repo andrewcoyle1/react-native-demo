@@ -58,7 +58,10 @@ export const Fonts = Platform.select({
 });
 
 /** Plan accent. Fixed rather than themed: it is only ever used on artwork. */
-export const PlanAccent = '#9BE87F';
+export const ActivePlanAccent = '#9be87b';
+export const ActivePlanHalo = '#6ca256';
+export const InactivePlanAccent = '#95a2e3';
+export const InactivePlanHalo = '#6467bb';
 
 /**
  * Accents that carry meaning rather than mood: a workout's discipline tags, the
@@ -72,7 +75,7 @@ export const Accents = {
   /** Equipment the session needs you to bring. */
   equipment: '#D4A72C',
   /** Completed, on track. */
-  success: PlanAccent,
+  success: ActivePlanAccent,
   /** Scheduling and calendar affordances. */
   schedule: '#8B7CF6',
   /** Interval bars on the session chart. */

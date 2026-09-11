@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { ActionRow } from '@/components/action-row';
@@ -7,30 +8,73 @@ import { Carousel } from '@/components/carousel';
 import { DayHeading } from '@/components/day-heading';
 import { PlanCard } from '@/components/plan-card';
 import { PromptCard } from '@/components/prompt-card';
-import { Card } from '@/components/screen';
 import { SectionScreen } from '@/components/section-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WorkoutCard } from '@/components/workout-card';
-import { Disciplines, SAMPLE_WEEK, type PlannedSession } from '@/constants/sample-week';
 import { Accents, Spacing } from '@/constants/theme';
+import { daysBetween, toDateKey, type DateRange } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import { toPlanCardProps } from '@/presenters/plan-presenter';
+import { toWorkoutCardProps } from '@/presenters/session-presenter';
 import { useAuth } from '@/providers/auth-provider';
+import { useSessions, type SessionModel } from '@/providers/sessions-provider';
+import { useTraining } from '@/providers/training-provider';
+import { TrendsProvider, useTrends } from '@/providers/trends-provider';
+import { services } from '@/services/container';
 
-/**
- * One section per day. `meta` carries the offset the heading needs, so the
- * header does not have to parse it back out of the section's id.
- */
-const SECTIONS = SAMPLE_WEEK.map(day => ({
-  id: `day-${day.dayOffset}`,
-  meta: day.dayOffset,
-  data: day.sessions,
-}));
+/** Monday-to-Sunday around today, in the athlete's own local calendar. */
+function currentWeekWindow(): DateRange {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: toDateKey(monday), to: toDateKey(sunday) };
+}
 
 export default function DashboardScreen() {
+  const window = useMemo(() => currentWeekWindow(), []);
+
+  return (
+    <TrendsProvider window={window} service={services.trends}>
+      <DashboardBody />
+    </TrendsProvider>
+  );
+}
+
+function DashboardBody() {
   useScreenTracking('Dashboard');
 
   const { user } = useAuth();
+  const { state, byDate } = useSessions();
+  const { plans: planState, raceFor } = useTraining();
+  const { state: trends } = useTrends();
+
+  // An empty list while loading or on error: the carousel keeps its "add plan"
+  // page, which is what an athlete with no plans should see anyway.
+  const plans = planState.status === 'ready' ? planState.data : [];
+
+  // Only meaningful for the plan under way, and only once it has arrived —
+  // an active plan card falls back to the plan's own stored progress until it
+  // does, rather than showing a zero that is not really zero.
+  const actualHoursThisWeek = trends.status === 'ready' ? trends.data.completed.durationSeconds / 3600 : undefined;
+
+  /**
+   * One section per day that has sessions. `meta` carries the offset the heading
+   * needs, so the header does not have to parse it back out of the date.
+   *
+   * Days are taken from the data rather than generated, so a rest day simply has
+   * no section — which is what the design shows.
+   */
+  const sections = useMemo(() => {
+    const today = toDateKey(new Date());
+    return [...byDate.entries()].map(([date, sessions]) => ({
+      id: `day-${date}`,
+      meta: daysBetween(today, date),
+      data: sessions,
+    }));
+  }, [byDate]);
 
   // The root gate only mounts (main) when a user exists; this narrows the type.
   if (!user) {
@@ -39,22 +83,12 @@ export default function DashboardScreen() {
 
   return (
     <SectionScreen
-      sections={SECTIONS}
-      keyExtractor={(session: PlannedSession) => session.id}
+      sections={sections}
+      keyExtractor={(session: SessionModel) => session.id}
       renderHeader={section => <DayHeading dayOffset={section.meta} />}
       renderItem={session => (
         <WorkoutCard
-          title={session.title}
-          icon={Disciplines[session.discipline].icon}
-          iconAccent={Disciplines[session.discipline].accent}
-          status={session.status}
-          tags={session.tags}
-          metrics={session.metrics}
-          segments={session.segments}
-          totalMinutes={session.totalMinutes}
-          tickEvery={session.tickEvery}
-          coach={session.coach}
-          note={session.note}
+          {...toWorkoutCardProps(session, 'metric')}
           onMenuPress={() => router.push('/sheet')}
         />
       )}
@@ -69,33 +103,22 @@ export default function DashboardScreen() {
             height={272}
             accessibilityLabel="Dashboard highlights"
             addPage={<AddPlanCard onPress={() => router.push('/sheet')} />}>
-            <PlanCard
-              title1="Current - Prep Plan"
-                title2="305 days"
-                title3="until IRONMAN 70.3 Luxembourg"
-                title4="Prep plan week 1 of 24 - Base Phase"
-                /* Remote test photo, to prove the wiring. Swap for real artwork. */
-                backgroundImage="https://images.unsplash.com/photo-1517649763962-0c623066013b?w=800"
-                /* 25 weeks of planned hours; week 2 is in progress. Placeholder
-                   until the plan service lands. */
-                bars={[8, 9, 7, 10, 11, 9, 12, 13, 10, 14, 12, 15, 13, 16, 14, 11, 17, 15, 18, 16, 13, 19, 17, 12, 8]}
-                currentBarIndex={1}
-                currentBarProgress={0.35}
+            {/* One card per plan the backend has generated: the current one
+                first, then anything upcoming. The countdowns and week numbers
+                are computed from dates by the presenter, not typed in. */}
+            {plans.map(plan => (
+              <PlanCard
+                key={plan.id}
+                {...toPlanCardProps(
+                  plan,
+                  raceFor(plan),
+                  undefined,
+                  plan.status === 'current' ? actualHoursThisWeek : undefined,
+                )}
                 onMenuPress={() => router.push('/sheet')}
                 style={styles.slide}
               />
-
-              <Card title="This week" style={styles.slide}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Placeholder — weekly totals and streak.
-                </ThemedText>
-              </Card>
-
-            <Card title="Next session" style={styles.slide}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Placeholder — what is scheduled next.
-              </ThemedText>
-            </Card>
+            ))}
           </Carousel>
 
           <ThemedView style={styles.listHeaderPadded}>
@@ -111,6 +134,13 @@ export default function DashboardScreen() {
       }
       ListFooterComponent={
         <ThemedView style={styles.listFooter}>
+          {/* A failed read is said plainly rather than left as an empty week,
+              which would read as "nothing planned" and be a lie. */}
+          {state.status === 'error' ? (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.error}>
+              Your plan could not be loaded. {state.message}
+            </ThemedText>
+          ) : null}
           <PromptCard
             title="Looking for more workouts?"
             body="View your full training plan to see workouts further in the future."
@@ -141,5 +171,9 @@ const styles = StyleSheet.create({
   },
   listFooter: {
     paddingHorizontal: Spacing.three,
+    gap: Spacing.four,
+  },
+  error: {
+    textAlign: 'center',
   },
 });

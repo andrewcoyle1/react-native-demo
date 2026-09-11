@@ -1,186 +1,23 @@
 import { SymbolView } from 'expo-symbols';
-import type { SFSymbol } from 'expo-symbols';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { RouteLine, type RoutePoint } from '@/components/route-line';
+import { RouteLine } from '@/components/route-line';
 import { SectionScreen } from '@/components/section-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Accents, Spacing, Zones } from '@/constants/theme';
+import { Accents, Spacing } from '@/constants/theme';
+import { daysBetween, toDateKey } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useTheme } from '@/hooks/use-theme';
+import { toActivityRowProps, toActivityWeeks } from '@/presenters/activity-presenter';
+import { useActivities } from '@/providers/activities-provider';
+import { useTraining } from '@/providers/training-provider';
 
 const ThumbSize = 88;
 
-/** Normalised route shapes, standing in for map tiles. */
-const RUN_ROUTE: RoutePoint[] = [
-  { x: 0.04, y: 0.62 }, { x: 0.18, y: 0.55 }, { x: 0.3, y: 0.6 }, { x: 0.44, y: 0.5 },
-  { x: 0.58, y: 0.52 }, { x: 0.72, y: 0.44 }, { x: 0.88, y: 0.47 }, { x: 0.97, y: 0.4 },
-];
-
-const RIDE_ROUTE: RoutePoint[] = [
-  { x: 0.42, y: 0.08 }, { x: 0.6, y: 0.14 }, { x: 0.66, y: 0.3 }, { x: 0.58, y: 0.46 },
-  { x: 0.62, y: 0.62 }, { x: 0.5, y: 0.76 }, { x: 0.34, y: 0.8 }, { x: 0.22, y: 0.68 },
-  { x: 0.2, y: 0.5 }, { x: 0.28, y: 0.32 }, { x: 0.42, y: 0.08 },
-];
-
-type Stat = { icon: SFSymbol; value: string; unit?: string; accent: string };
-
-type Activity = {
-  id: string;
-  when: string;
-  title: string;
-  icon: SFSymbol;
-  accent: string;
-  place?: string;
-  route?: RoutePoint[];
-  stats: Stat[];
-  /** Small trailing marks: synced, uploaded, effort recorded. */
-  marks: { icon: SFSymbol; accent: string }[];
-};
-
-const distance = (value: string, unit: string): Stat => ({
-  icon: 'ruler',
-  value,
-  unit,
-  accent: Accents.equipment,
-});
-const duration = (value: string): Stat => ({ icon: 'clock', value, accent: Accents.recovery });
-const pace = (value: string, unit: string): Stat => ({
-  icon: 'speedometer',
-  value,
-  unit,
-  accent: Accents.speed,
-});
-
-const Marks = {
-  linked: { icon: 'link' as SFSymbol, accent: Accents.recovery },
-  uploaded: { icon: 'triangle.fill' as SFSymbol, accent: Accents.recovery },
-  effort: { icon: 'bolt.fill' as SFSymbol, accent: Zones.hard },
-};
-
-type Week = { range: string; plan: string };
-
-const THIS_WEEK: Activity[] = [
-  {
-    id: 'run-intervals',
-    when: 'Wed Sep 09, 2026 13:57',
-    title: 'Stamina: 6 × 2 min Fast Intervals',
-    icon: 'figure.run',
-    accent: Zones.hard,
-    place: 'Dublin, IE',
-    route: RUN_ROUTE,
-    stats: [distance('5.9', 'km'), duration('33:03'), pace('5:36', '/km')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'swim-chest',
-    when: 'Wed Sep 09, 2026 11:51',
-    title: 'Stamina: Chest Pressure Cooker (8 rounds)',
-    icon: 'figure.pool.swim',
-    accent: Zones.swim,
-    stats: [distance('2700', 'm'), duration('1:30:45'), pace('2:19', '/100m')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'ride-lunch',
-    when: 'Tue Sep 08, 2026 12:55',
-    title: 'Lunch Ride',
-    icon: 'bicycle',
-    accent: Zones.ride,
-    place: 'Stapolin, Baldoyle',
-    route: RIDE_ROUTE,
-    stats: [distance('19.0', 'km'), duration('46:21'), pace('24.6', 'km/h')],
-    marks: [Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'gym-lower',
-    when: 'Tue Sep 08, 2026 10:47',
-    title: 'Lower',
-    icon: 'dumbbell',
-    accent: '#9AA4AE',
-    stats: [
-      duration('1:04:30'),
-      { icon: 'heart.fill', value: '100', unit: 'bpm', accent: Accents.speed },
-      { icon: 'flame.fill', value: '345', unit: 'kcal', accent: Zones.hard },
-    ],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'ride-easy',
-    when: 'Tue Sep 08, 2026 09:34',
-    title: 'Stamina: 45 min Easy Ride',
-    icon: 'bicycle',
-    accent: Zones.ride,
-    place: 'Stapolin, Baldoyle',
-    route: RIDE_ROUTE,
-    stats: [distance('19.0', 'km'), duration('45:36'), pace('25.0', 'km/h')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'run-strides',
-    when: 'Mon Sep 07, 2026 17:20',
-    title: 'Stamina: 25 min Easy Run w 4 × 15s Strides',
-    icon: 'figure.run',
-    accent: Zones.hard,
-    place: 'Malahide, County Dublin',
-    route: RUN_ROUTE,
-    stats: [distance('4.4', 'km'), duration('25:06'), pace('5:43', '/km')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-];
-
-const LAST_WEEK: Activity[] = [
-  {
-    id: 'run-long-prev',
-    when: 'Sun Sep 06, 2026 09:12',
-    title: 'Stamina: 40 min Long Run',
-    icon: 'figure.run',
-    accent: Zones.hard,
-    place: 'Portmarnock, County Dublin',
-    route: RUN_ROUTE,
-    stats: [distance('6.8', 'km'), duration('40:11'), pace('5:54', '/km')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-  {
-    id: 'swim-technique-prev',
-    when: 'Fri Sep 04, 2026 07:38',
-    title: 'Stamina: Relaxed Floating (2 rounds)',
-    icon: 'figure.pool.swim',
-    accent: Zones.swim,
-    stats: [distance('1700', 'm'), duration('38:02'), pace('2:14', '/100m')],
-    marks: [Marks.linked, Marks.uploaded],
-  },
-  {
-    id: 'ride-endurance-prev',
-    when: 'Thu Sep 03, 2026 16:20',
-    title: 'Stamina: 50 min Aerobic Ride',
-    icon: 'bicycle',
-    accent: Zones.ride,
-    place: 'Stapolin, Baldoyle',
-    route: RIDE_ROUTE,
-    stats: [distance('20.4', 'km'), duration('50:08'), pace('24.4', 'km/h')],
-    marks: [Marks.linked, Marks.uploaded, Marks.effort],
-  },
-];
-
-/**
- * One section per plan week. The range and the plan label are the header, which
- * pins while its own week is on screen.
- */
-const WEEKS = [
-  {
-    id: 'week-1',
-    meta: { range: 'Sep 7 - 13', plan: 'Prep Plan Week 1' } satisfies Week,
-    data: THIS_WEEK,
-  },
-  {
-    id: 'week-0',
-    meta: { range: 'Aug 31 - Sep 6', plan: 'Prep Plan Week 0' } satisfies Week,
-    data: LAST_WEEK,
-  },
-];
+/** What the presenter hands back for one row. */
+type ActivityRowProps = ReturnType<typeof toActivityRowProps>;
 
 export default function ActivitiesScreen() {
   useScreenTracking('Activities');
@@ -188,24 +25,51 @@ export default function ActivitiesScreen() {
   const theme = useTheme();
   const [query, setQuery] = useState('');
 
+  const { state, loadMore } = useActivities();
+
+  const { plans } = useTraining();
+
+  /**
+   * Which plan week a given Monday fell in.
+   *
+   * The plans know their own start dates, so the caption is arithmetic rather
+   * than a stored string — a week that falls outside every plan simply has none.
+   */
+  const planLabel = useCallback(
+    (weekStarting: Date) => {
+      if (plans.status !== 'ready') {
+        return '';
+      }
+      const key = toDateKey(weekStarting);
+      for (const plan of plans.data) {
+        if (key >= plan.startDate && key <= plan.endDate) {
+          const week = Math.floor(daysBetween(plan.startDate, key) / 7) + 1;
+          return `${plan.name} Week ${week}`;
+        }
+      }
+      return '';
+    },
+    [plans],
+  );
+
   // Filtering here rather than in the list keeps the empty case in one place,
   // and drops a week entirely once nothing in it matches.
   const sections = useMemo(() => {
+    const activities = state.status === 'ready' ? state.items : [];
     const term = query.trim().toLowerCase();
-    if (!term) {
-      return WEEKS;
-    }
-    return WEEKS.map(week => ({
-      ...week,
-      data: week.data.filter(activity => activity.title.toLowerCase().includes(term)),
-    })).filter(week => week.data.length > 0);
-  }, [query]);
+    const matching = term
+      ? activities.filter(activity => activity.title.toLowerCase().includes(term))
+      : activities;
+
+    return toActivityWeeks(matching, planLabel);
+  }, [state, query, planLabel]);
 
   return (
     <SectionScreen
       sections={sections}
-      keyExtractor={(activity: Activity) => activity.id}
-      renderItem={activity => <ActivityRow activity={activity} />}
+      keyExtractor={activity => activity.id}
+      renderItem={activity => <ActivityRow activity={toActivityRowProps(activity, 'metric')} />}
+      onEndReached={loadMore}
       renderHeader={section => (
         <View style={styles.rangeBlock}>
           <View style={styles.rangeRow}>
@@ -249,18 +113,46 @@ export default function ActivitiesScreen() {
           </View>
         </View>
       }
-      ListFooterComponent={
-        sections.length === 0 ? (
-          <ThemedText themeColor="textSecondary" style={styles.empty}>
-            No activities match “{query.trim()}”.
-          </ThemedText>
-        ) : undefined
-      }>
+      ListFooterComponent={<ListFooter state={state} query={query} />}>
     </SectionScreen>
   );
 }
 
-function ActivityRow({ activity }: { activity: Activity }) {
+/**
+ * The foot of the list: a spinner while a further page is on its way, the
+ * failure if the first read failed, and the no-matches line otherwise.
+ */
+function ListFooter({
+  state,
+  query,
+}: {
+  state: ReturnType<typeof useActivities>['state'];
+  query: string;
+}) {
+  if (state.status === 'error') {
+    return (
+      <ThemedText themeColor="textSecondary" style={styles.empty}>
+        Your activities could not be loaded. {state.message}
+      </ThemedText>
+    );
+  }
+
+  if (state.status === 'loading' || state.loadingMore) {
+    return <ActivityIndicator style={styles.footerSpinner} />;
+  }
+
+  if (state.items.length === 0) {
+    return (
+      <ThemedText themeColor="textSecondary" style={styles.empty}>
+        {query.trim() ? `No activities match \u201C${query.trim()}\u201D.` : 'No activities yet.'}
+      </ThemedText>
+    );
+  }
+
+  return null;
+}
+
+function ActivityRow({ activity }: { activity: ActivityRowProps }) {
   const theme = useTheme();
 
   return (
@@ -455,6 +347,9 @@ const styles = StyleSheet.create({
   },
   statUnit: {
     fontSize: 12,
+  },
+  footerSpinner: {
+    paddingVertical: Spacing.four,
   },
   empty: {
     textAlign: 'center',

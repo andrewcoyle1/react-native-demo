@@ -9,12 +9,24 @@
       "@/assets/*": [
         "./assets/*"
       ]
-    }
+    },
+    "allowImportingTsExtensions": true,
+    // react-native@0.87.1 ships broken generated types: StyleSheetTypes.d.ts
+    // references ____LayoutStyle_Internal without declaring or importing it, so
+    // it degrades to `any` and `keyof any` makes the Omit chain strip every
+    // layout/shadow/transform property off ViewStyle. skipLibCheck hides the
+    // cause and surfaces ~350 bogus errors in our code instead. Pin TS to RN's
+    // legacy hand-written types until upstream regenerates them.
+    "customConditions": ["react-native-legacy-deep-imports", "react-native"]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "server",
+    "node_modules"
   ]
 }

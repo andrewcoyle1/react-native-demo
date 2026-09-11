@@ -1,0 +1,118 @@
+/**
+ * Name and date of birth — the design's own three date-of-birth wheels
+ * (day / month / year) share `WheelPicker`, the month column formatted to
+ * its three-letter name instead of a number.
+ *
+ * Gender is asked once, on `body-metrics`, not here — the design's own two
+ * screens both carried the question, which meant answering it twice.
+ */
+import { router } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+
+import { AuthTextField } from '@/components/auth-field';
+import { OnboardingStep } from '@/components/onboarding-step';
+import { FieldCaption } from '@/components/onboarding/field-caption';
+import { WheelPicker } from '@/components/onboarding/wheel-picker';
+import { ThemedText } from '@/components/themed-text';
+import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
+
+import { stepProgress } from './flow-order';
+
+const Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A two-digit year wheel (30-99) could never reach anyone born after 1999,
+ * and was ambiguous besides — "05" could mean 1905 or 2005. Full four-digit
+ * years, up to this year, fix both at once.
+ */
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_BIRTH_YEAR = CURRENT_YEAR - 100;
+
+export default function PersonalDetailsScreen() {
+  useScreenTracking('Personal details');
+  const { answers, update } = useOnboardingFlow();
+  const dob = answers.dateOfBirth ?? { day: 1, month: 2, year: CURRENT_YEAR - 30 };
+
+  function setDob(patch: Partial<typeof dob>) {
+    update({ dateOfBirth: { ...dob, ...patch } });
+  }
+
+  return (
+    <OnboardingStep
+      title="Personal details"
+      subtitle="Tell us a little more about yourself"
+      progress={stepProgress('personal-details', answers.hasRace)}
+      nextDisabled={!answers.name.trim()}
+      onNext={() => router.push('/body-metrics')}>
+      <FieldCaption style={styles.caption}>Name</FieldCaption>
+      <AuthTextField
+        value={answers.name}
+        onChangeText={name => update({ name })}
+        placeholder="Your name"
+        autoCapitalize="words"
+        returnKeyType="done"
+      />
+
+      <View style={styles.section}>
+        <FieldCaption style={styles.caption}>Date of Birth</FieldCaption>
+        <View style={styles.dobRow}>
+          <View style={styles.dobColumn}>
+            <ThemedText themeColor="textSecondary" style={styles.dobHeader}>
+              DD
+            </ThemedText>
+            <WheelPicker min={1} max={31} value={dob.day} onChange={day => setDob({ day })} width={90} />
+          </View>
+          <View style={styles.dobColumn}>
+            <ThemedText themeColor="textSecondary" style={styles.dobHeader}>
+              Mon
+            </ThemedText>
+            <WheelPicker
+              min={1}
+              max={12}
+              value={dob.month}
+              format={v => Months[v - 1] ?? ''}
+              onChange={month => setDob({ month })}
+              width={110}
+            />
+          </View>
+          <View style={styles.dobColumn}>
+            <ThemedText themeColor="textSecondary" style={styles.dobHeader}>
+              YYYY
+            </ThemedText>
+            <WheelPicker
+              min={MIN_BIRTH_YEAR}
+              max={CURRENT_YEAR}
+              value={dob.year}
+              onChange={year => setDob({ year })}
+              width={120}
+            />
+          </View>
+        </View>
+      </View>
+    </OnboardingStep>
+  );
+}
+
+const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
+  section: {
+    marginTop: 30,
+  },
+  dobRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  dobColumn: {
+    alignItems: 'center',
+  },
+  dobHeader: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: 4,
+  },
+});

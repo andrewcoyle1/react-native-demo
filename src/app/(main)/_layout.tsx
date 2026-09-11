@@ -6,18 +6,26 @@
  *
  * The header is rendered here, as a sibling above the tabs, so that switching
  * tabs wipes only the content beneath it.
+ *
+ * `TrainingProvider` is mounted here rather than per-tab because plans, races
+ * and the schedule are read the same way everywhere — unlike sessions, whose
+ * window differs by tab, so that provider lives in each tab's own layout.
  */
 import { View, StyleSheet } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { AppHeader } from '@/components/app-header';
+import { TrainingProvider } from '@/providers/training-provider';
+import { services } from '@/services/container';
 
 export default function MainLayout() {
   return (
-    <View style={styles.container}>
-      <AppHeader />
-      <AppTabs />
-    </View>
+    <TrainingProvider service={services.training}>
+      <View style={styles.container}>
+        <AppHeader />
+        <AppTabs />
+      </View>
+    </TrainingProvider>
   );
 }
 

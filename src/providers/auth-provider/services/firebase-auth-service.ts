@@ -5,15 +5,33 @@
  */
 import {
   createUserWithEmailAndPassword,
+  deleteUser as firebaseDeleteUser,
   getAuth,
   onAuthStateChanged,
-  signInAnonymously as firebaseSignInAnonymously,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
 } from '@react-native-firebase/auth';
 
 import { AuthError, type AuthService, type AuthUser } from './auth-service';
+
+import { AUTH_PROVIDERS, type AuthProvider } from '@/domain/auth';
+
+/** Firebase names its providers differently from the domain. */
+const PROVIDER_IDS: Record<string, AuthProvider> = {
+  password: 'email',
+  'apple.com': 'apple',
+  'google.com': 'google',
+};
+
+/** Anything Firebase reports that the domain has no name for is dropped. */
+function toProviders(user: User): AuthProvider[] {
+  const mapped = user.providerData
+    .map(entry => PROVIDER_IDS[entry.providerId])
+    .filter((provider): provider is AuthProvider => provider !== undefined);
+
+  return AUTH_PROVIDERS.filter(provider => mapped.includes(provider));
+}
 
 function toAuthUser(user: User | null): AuthUser | null {
   if (!user) {
@@ -22,8 +40,8 @@ function toAuthUser(user: User | null): AuthUser | null {
   return {
     uid: user.uid,
     email: user.email,
-    isAnonymous: user.isAnonymous,
     emailVerified: user.emailVerified,
+    providers: toProviders(user),
   };
 }
 
@@ -44,6 +62,10 @@ function describe(code: string, error: unknown) {
       return 'Network unavailable. Check your connection and try again.';
     case 'auth/operation-not-allowed':
       return 'That sign-in method is disabled in the Firebase console.';
+    case 'auth/requires-recent-login':
+      return 'For your security, please sign out and back in, then try deleting your account again.';
+    case 'auth/no-current-user':
+      return 'You are not signed in.';
     default:
       return error instanceof Error ? error.message : 'Something went wrong.';
   }
@@ -66,7 +88,15 @@ export const firebaseAuthService: AuthService = {
 
   signUp: (email, password) => run(() => createUserWithEmailAndPassword(getAuth(), email, password)),
 
-  signInAnonymously: () => run(() => firebaseSignInAnonymously(getAuth())),
 
   signOut: () => run(() => firebaseSignOut(getAuth())),
+
+  deleteAccount: () =>
+    run(() => {
+      const user = getAuth().currentUser;
+      if (!user) {
+        throw { code: 'auth/no-current-user' };
+      }
+      return firebaseDeleteUser(user);
+    }),
 };

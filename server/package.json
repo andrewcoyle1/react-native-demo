@@ -1,0 +1,31 @@
+{
+  "name": "stamina-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --watch src/index.ts",
+    "start": "node --env-file-if-exists=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/index.ts",
+    "migrate": "node --env-file-if-exists=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/migrate.ts",
+    "test": "DATABASE_URL=postgres://stamina:stamina@localhost:5433/stamina_test LOG_LEVEL=silent node --env-file-if-exists=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --test-concurrency=1 test/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "seed": "node --env-file-if-exists=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.0",
+    "argon2": "^0.45.1",
+    "fastify": "^5.2.0",
+    "jose": "^6.2.12",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "~6.0.3"
+  }
+}

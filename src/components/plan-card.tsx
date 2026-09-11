@@ -15,7 +15,13 @@ import { PlanChart } from './plan-chart';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { PlanAccent, Spacing } from '@/constants/theme';
+import {
+  ActivePlanAccent,
+  ActivePlanHalo,
+  InactivePlanAccent,
+  InactivePlanHalo,
+  Spacing,
+} from '@/constants/theme';
 
 /**
  * Liquid glass is iOS 26+. Everywhere else `GlassView` renders as a plain View,
@@ -24,10 +30,21 @@ import { PlanAccent, Spacing } from '@/constants/theme';
 const glassAvailable = isLiquidGlassAvailable();
 
 type PlanCardProps = {
+  /**
+   * The plan under way, versus one still ahead. Switches the accent from green
+   * to violet and rearranges the titles: an active plan leads with its
+   * countdown, an upcoming one with the race it is building towards.
+   */
+  active: boolean;
   title1?: string;
   title2?: string;
   title3?: string;
   title4?: string;
+  /**
+   * A run of words inside `title4` to pick out in the accent — the "166 days"
+   * of "starts in 166 days". Ignored when it does not occur.
+   */
+  highlight?: string;
   /**
    * Optional artwork behind the card's content. Takes anything expo-image's
    * `source` takes: `require('…/x.png')` for a bundled asset, a remote URL
@@ -40,6 +57,8 @@ type PlanCardProps = {
   currentBarIndex?: number;
   /** How much of the current week is complete, 0-1. */
   currentBarProgress?: number;
+  /** What the current bar's label reads — actual hours trained, not planned. */
+  currentBarLabel?: number;
   /** Tallest bar's height in points. */
   chartHeight?: number;
   /** Adds the overflow button in the card's top-right corner. */
@@ -51,14 +70,17 @@ type PlanCardProps = {
 
 /** Grouped block of related controls or values. */
 export function PlanCard({
+  active,
   title1,
   title2,
   title3,
   title4,
+  highlight,
   backgroundImage,
   bars,
   currentBarIndex,
   currentBarProgress,
+  currentBarLabel,
   chartHeight = 70,
   onMenuPress,
   children,
@@ -69,6 +91,9 @@ export function PlanCard({
   // conditional rather than hardcoded so a card with no image still reads.
   const onImage = !!backgroundImage;
   const hasChart = !!bars && bars.length > 0;
+
+  const accent = active ? ActivePlanAccent : InactivePlanAccent;
+  const halo = active ? ActivePlanHalo : InactivePlanHalo;
 
   return (
     <ThemedView type="backgroundElement" style={[styles.card, style]}>
@@ -133,38 +158,78 @@ export function PlanCard({
             {/* Two concentric filled circles: a translucent halo with a solid
                 core centred in it. The inner one is a child rather than a
                 sibling so the parent's centring does the alignment. */}
-            <View style={styles.statusHalo}>
-              <View style={styles.statusCore} />
+            <View style={[styles.statusHalo, { backgroundColor: halo }]}>
+              <View style={[styles.statusCore, { backgroundColor: accent }]} />
             </View>
 
-            <ThemedText style={[styles.title1, onImage && styles.textOnImage]}>
+            <ThemedText style={[styles.title1, { color: accent }]}>
               {title1.toUpperCase()}
             </ThemedText>
           </GlassView>
         ) : null}
 
-        {/* A plain View, not ThemedView: ThemedView with no `type` paints the
-            `background` token, which was covering the artwork with a white box. */}
-        <View style={styles.row}>
-          {/* Not uppercased, unlike the labels around it: this is the card's
-              headline number, and "305 DAYS" shouts where "305 days" reads. */}
-          {title2 ? (
-            <ThemedText style={[styles.title2, onImage && styles.textOnImage]}>
-              {title2}
-            </ThemedText>
-          ) : null}
-          {title3 ? (
-            <ThemedText style={[styles.title3, onImage && styles.textOnImage]}>
-              {title3}
-            </ThemedText>
-          ) : null}
-        </View>
+        {/* An active plan leads with its countdown, so title2 and title3 share
+            a baseline row: "305 days" then "until IRONMAN 70.3 Luxembourg".
+            An upcoming one leads with the race, so the three stack and the
+            emphasis moves to title3. */}
+        {active ? (
+          /* A plain View, not ThemedView: ThemedView with no `type` paints the
+             `background` token, which was covering the artwork with a white box. */
+          <View style={styles.row}>
+            {/* Not uppercased, unlike the labels around it: this is the card's
+                headline number, and "305 DAYS" shouts where "305 days" reads. */}
+            {title2 ? (
+              <ThemedText style={[styles.title2, onImage && styles.textOnImage]}>
+                {title2}
+              </ThemedText>
+            ) : null}
+            {title3 ? (
+              <ThemedText style={[styles.title3, onImage && styles.textOnImage]}>
+                {title3}
+              </ThemedText>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.stack}>
+            {title2 ? (
+              <ThemedText style={[styles.lead, onImage && styles.textOnImage]}>
+                {title2}
+              </ThemedText>
+            ) : null}
+            {title3 ? (
+              <ThemedText style={[styles.headline, onImage && styles.textOnImage]}>
+                {title3}
+              </ThemedText>
+            ) : null}
+          </View>
+        )}
+
         {title4 ? (
-          <ThemedText
-            themeColor="textSecondary"
-            style={[styles.title4, onImage && styles.textOnImageSecondary]}>
-            {title4.toUpperCase()}
-          </ThemedText>
+          active ? (
+            <ThemedText
+              themeColor="textSecondary"
+              style={[styles.title4, onImage && styles.textOnImageSecondary]}>
+              {title4.toUpperCase()}
+            </ThemedText>
+          ) : (
+            /* Split around the highlighted run so only that part takes the
+               accent, keeping it one line of text rather than a row of views
+               that could wrap apart from each other. */
+            <ThemedText style={[styles.lead, onImage && styles.textOnImage]}>
+              {highlight && title4.includes(highlight)
+                ? title4.split(highlight).flatMap((part, index) =>
+                    index === 0
+                      ? [part]
+                      : [
+                          <ThemedText key={index} style={[styles.lead, { color: accent }]}>
+                            {highlight}
+                          </ThemedText>,
+                          part,
+                        ],
+                  )
+                : title4}
+            </ThemedText>
+          )
         ) : null}
       </View>
 
@@ -178,6 +243,7 @@ export function PlanCard({
           bars={bars}
           currentIndex={currentBarIndex}
           currentProgress={currentBarProgress}
+          currentLabelValue={currentBarLabel}
           height={chartHeight}
           style={styles.chart}
         />
@@ -246,17 +312,14 @@ const styles = StyleSheet.create({
   statusHalo: {
     width: 12,
     height: 12,
-    /* Half the width is what makes a square a circle. */
-    borderRadius: 9,
-    backgroundColor: 'rgba(155, 232, 127, 0.35)',
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusCore: {
     width: 6,
     height: 6,
-    borderRadius: 4.5,
-    backgroundColor: PlanAccent,
+    borderRadius: 3,
   },
   capsuleFallback: {
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -285,6 +348,22 @@ const styles = StyleSheet.create({
     /* Tighter than the card's own gap, so these lines read as one block. */
     gap: Spacing.one,
   },
+  /* The upcoming card's three lines, closer together than the active card's
+     baseline row so they read as one sentence broken over three lines. */
+  stack: {
+    gap: Spacing.half,
+  },
+  /* Sized so the rendered lines match the design's measured widths — the
+     headline carries its emphasis through weight more than size. */
+  lead: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  headline: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 700,
+  },
   row: {
     flexDirection: 'row',
     /* 'baseline' rather than 'center': the two titles are different sizes, so
@@ -298,7 +377,7 @@ const styles = StyleSheet.create({
   /* One entry per title so their sizes can diverge. They start identical —
      give each its own fontSize/fontWeight as the design settles. */
   title1: {
-    fontSize: 12
+    fontSize: 12,
   },
   title2: {
     fontSize: 26,

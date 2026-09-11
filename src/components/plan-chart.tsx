@@ -3,14 +3,14 @@ import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyl
 
 import { ThemedText } from './themed-text';
 
-import { PlanAccent, Spacing } from '@/constants/theme';
+import { ActivePlanAccent, Spacing } from '@/constants/theme';
 
 /**
  * Colours are fixed rather than theme tokens: this chart is designed to sit on
  * a photograph, which does not change with the light/dark theme.
  */
 const BarColors = {
-  done: PlanAccent,
+  done: ActivePlanAccent,
   /** Weeks not yet started — a wash over the artwork rather than a solid fill. */
   todo: 'rgba(255, 255, 255, 0.28)',
   /** The dashed outline showing the current week's target. */
@@ -35,6 +35,14 @@ type PlanChartProps = {
    * How much of the current week is done, 0-1. Only used for `currentIndex`.
    */
   currentProgress?: number;
+  /**
+   * What the current bar's label reads, in place of `bars[currentIndex]`. The
+   * bar itself still plots the planned figure — that dashed outline is the
+   * week's target — but the label beside it is what the design calls out as
+   * "actual", so mid-week it should read what has actually been trained, not
+   * what was planned.
+   */
+  currentLabelValue?: number;
   /** Suffix on the current bar's label — the unit its values are in. */
   unit?: string;
   /** Tallest bar's height in points, excluding the label above it. */
@@ -46,6 +54,7 @@ export function PlanChart({
   bars,
   currentIndex,
   currentProgress = 0,
+  currentLabelValue,
   unit = 'h',
   height = 90,
   style,
@@ -127,7 +136,7 @@ export function PlanChart({
         <View
           onLayout={handleLabelLayout}
           style={[styles.pill, { left: labelLeft, bottom: labelBottom }]}>
-          <ThemedText style={styles.pillText}>{`${bars[currentIndex]}${unit}`}</ThemedText>
+          <ThemedText style={styles.pillText}>{`${currentLabelValue ?? bars[currentIndex]}${unit}`}</ThemedText>
         </View>
       ) : null}
     </View>
