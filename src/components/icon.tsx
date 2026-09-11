@@ -32,6 +32,13 @@ const MaterialEquivalent: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'house': 'home',
   'house.fill': 'home',
   'calendar': 'calendar_month',
+  /* Trend directions. `StatTile` has drawn these since it was written and they
+     have never appeared on Android, because a name absent from this map falls
+     back to nothing — see the header. Fixing it here fixes the standard Trends
+     tab as well as the gluestack one. */
+  'arrow.up': 'arrow_upward',
+  'arrow.down': 'arrow_downward',
+  'arrow.right': 'arrow_forward',
   'calendar.badge.plus': 'calendar_add_on',
   'flame': 'local_fire_department',
   'flame.fill': 'local_fire_department',
