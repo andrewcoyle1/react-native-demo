@@ -8,7 +8,7 @@
 // It does two jobs: install the app-wide providers, and decide which half of the
 // app you are allowed into.
 // ─────────────────────────────────────────────────────────────────────────────
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -76,22 +76,33 @@ function RootNavigator() {
    */
   const needsSetup = !!user && profile.status === 'absent';
 
+  /*
+   * Exactly one of the three guards below is true at any moment, so this is the
+   * screen the athlete should be on right now. Every guarded-off branch
+   * redirects here, which is what `Protected` needs since the root Stack has no
+   * anchor of its own to fall back to.
+   */
+  const landing: Href = !user ? '/welcome' : needsSetup ? '/race-or-not' : '/';
+
   return (
     <>
       {/* Plays the logo animation, then hides the native splash. */}
       <AnimatedSplashOverlay />
 
       <Stack screenOptions={{ headerShown: false }}>
-        {/* `Protected` removes its screens from the navigator entirely when the
-            guard is false — they cannot be reached by deep link either, which a
-            merely-hidden route still could.
+        {/* expo-router 58 changed `Protected`: a screen whose guard is false is
+            no longer removed from the navigator, it is rendered as a redirect to
+            `redirectTo` (defaulting to the containing navigator's anchor — which
+            this root Stack does not declare, so it must be passed explicitly or
+            the app lands on +not-found). Deep links to a guarded screen still
+            cannot reach it; they redirect instead.
 
             Flipping a guard swaps one screen for another, which the navigator
             treats as a replace. `animationTypeForReplace` decides which way that
             replace appears to travel, so signing in reads as going forward and
             signing out as coming back. Both are set explicitly rather than left
             to the default, so neither direction is accidental. */}
-        <Stack.Protected guard={!!user && !needsSetup}>
+        <Stack.Protected guard={!!user && !needsSetup} redirectTo={landing}>
           <Stack.Screen name="(main)" options={{ animationTypeForReplace: 'push' }} />
 
           {/* Feedback and notifications live here, above the tabs, so they can
@@ -137,11 +148,11 @@ function RootNavigator() {
             from "Do you have a race in mind?" through the plan overview. Its
             own screen order and progress bar are `(setup)`'s concern; this
             gate only decides whether the athlete can reach it at all. */}
-        <Stack.Protected guard={needsSetup}>
+        <Stack.Protected guard={needsSetup} redirectTo={landing}>
           <Stack.Screen name="(setup)" options={{ animationTypeForReplace: 'push' }} />
         </Stack.Protected>
 
-        <Stack.Protected guard={!user}>
+        <Stack.Protected guard={!user} redirectTo={landing}>
           <Stack.Screen name="(onboarding)" options={{ animationTypeForReplace: 'pop' }} />
         </Stack.Protected>
       </Stack>
