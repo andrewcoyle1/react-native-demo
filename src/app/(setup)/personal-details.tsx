@@ -42,7 +42,7 @@ export default function PersonalDetailsScreen() {
       progress={stepProgress('personal-details', answers.hasRace)}
       nextDisabled={!answers.name.trim()}
       onNext={() => router.push('/body-metrics')}>
-      <FieldCaption>Name</FieldCaption>
+      <FieldCaption style={styles.caption}>Name</FieldCaption>
       <AuthTextField
         value={answers.name}
         onChangeText={name => update({ name })}
@@ -52,7 +52,7 @@ export default function PersonalDetailsScreen() {
       />
 
       <View style={styles.section}>
-        <FieldCaption>Date of Birth</FieldCaption>
+        <FieldCaption style={styles.caption}>Date of Birth</FieldCaption>
         <View style={styles.dobRow}>
           <View style={styles.dobColumn}>
             <ThemedText themeColor="textSecondary" style={styles.dobHeader}>
@@ -89,7 +89,7 @@ export default function PersonalDetailsScreen() {
       </View>
 
       <View style={styles.section}>
-        <FieldCaption>Gender</FieldCaption>
+        <FieldCaption style={styles.caption}>Gender</FieldCaption>
         <View style={styles.genderRow}>
           {genders.map(gender => {
             const active = answers.gender === gender.value;
@@ -114,11 +114,16 @@ export default function PersonalDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   section: {
     marginTop: 30,
   },
   dobRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: 12,
   },
   dobColumn: {
@@ -132,6 +137,7 @@ const styles = StyleSheet.create({
   genderRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 12,
   },
   genderChip: {
