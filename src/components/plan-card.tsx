@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image, type ImageProps } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PlanChart } from './plan-chart';
@@ -125,14 +125,20 @@ export function PlanCard({
           accessibilityRole="button"
           accessibilityLabel="Plan options"
           hitSlop={Spacing.two}
-          style={({ pressed }) => [styles.menu, pressed && styles.menuPressed]}>
-          <GlassView
-            glassEffectStyle="regular"
-            colorScheme="dark"
-            tintColor="rgba(0, 0, 0, 0.45)"
-            style={[styles.menuGlass, !glassAvailable && styles.capsuleFallback]}>
-            <SymbolView name="ellipsis" size={18} tintColor="#FFFFFF" />
-          </GlassView>
+          style={styles.menu}>
+          {({ pressed }) => (
+            <GlassView
+              glassEffectStyle="regular"
+              colorScheme="dark"
+              tintColor="rgba(0, 0, 0, 0.45)"
+              style={[styles.menuGlass, !glassAvailable && styles.capsuleFallback]}>
+              {/* Dimming the glyph rather than the `Pressable` around it. An
+                  opacity below 1 anywhere above a `GlassView` stops the glass
+                  rendering, so held down this button used to lose its material
+                  entirely — see `components/modal-backdrop.tsx`. */}
+              <Icon name="ellipsis" size={18} tintColor={pressed ? '#FFFFFF99' : '#FFFFFF'} />
+            </GlassView>
+          )}
         </Pressable>
       ) : null}
 
@@ -332,9 +338,6 @@ const styles = StyleSheet.create({
     right: Spacing.three,
     /* Above the artwork and the scrim, both of which paint earlier. */
     zIndex: 1,
-  },
-  menuPressed: {
-    opacity: 0.6,
   },
   menuGlass: {
     width: 36,
