@@ -2,6 +2,7 @@ import { Icon } from '@/components/icon';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { AltActivitiesScreen } from '@/components/alt/activities-screen';
 import { RouteLine } from '@/components/route-line';
 import { SectionScreen } from '@/components/section-screen';
 import { ThemedText } from '@/components/themed-text';
@@ -12,6 +13,7 @@ import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useTheme } from '@/hooks/use-theme';
 import { toActivityRowProps, toActivityWeeks } from '@/presenters/activity-presenter';
 import { useActivities } from '@/providers/activities-provider';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import { useTraining } from '@/providers/training-provider';
 
 const ThumbSize = 88;
@@ -26,6 +28,7 @@ export default function ActivitiesScreen() {
   const [query, setQuery] = useState('');
 
   const { state, loadMore } = useActivities();
+  const { alternateUi, ready: preferencesReady } = useDevicePreferences();
 
   const { plans } = useTraining();
 
@@ -63,6 +66,58 @@ export default function ActivitiesScreen() {
 
     return toActivityWeeks(matching, planLabel);
   }, [state, query, planLabel]);
+
+  /* Held rather than rendered-then-swapped — see the other tabs at this point. */
+  if (!preferencesReady) {
+    return null;
+  }
+
+  if (alternateUi) {
+    const term = query.trim();
+
+    return (
+      <AltActivitiesScreen
+        model={{
+          query,
+          onQueryChange: setQuery,
+          weeks: sections.map(section => ({
+            id: section.id,
+            range: section.meta.range,
+            plan: section.meta.plan,
+            activities: section.data.map(activity => {
+              const row = toActivityRowProps(activity, 'metric');
+
+              return {
+                id: row.id,
+                title: row.title,
+                when: row.when,
+                icon: row.icon,
+                accent: row.accent,
+                place: row.place,
+                route: row.route,
+                stats: row.stats.map(stat => ({
+                  label: stat.label,
+                  value: stat.value,
+                  unit: stat.unit,
+                })),
+              };
+            }),
+          })),
+          loadingMore: state.status === 'loading' || (state.status === 'ready' && state.loadingMore),
+          error: state.status === 'error' ? `Your activities could not be loaded. ${state.message}` : null,
+          /* Only once a read has succeeded and still produced nothing: saying
+             "no activities yet" while the first page is in flight is a lie. */
+          emptyMessage:
+            state.status === 'ready' && sections.length === 0
+              ? term
+                ? `No activities match \u201C${term}\u201D.`
+                : 'No activities yet.'
+              : null,
+          onEndReached: loadMore,
+        }}
+      />
+    );
+  }
 
   return (
     <SectionScreen
