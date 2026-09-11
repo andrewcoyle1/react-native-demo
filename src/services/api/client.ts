@@ -123,7 +123,10 @@ async function send<T>(method: string, path: string, options: SendOptions = {}):
     const response = await fetch(`${apiBaseUrl}${path}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        // Only set when a body is actually going out — Fastify rejects a
+        // request that declares a JSON content-type but sends no body, which
+        // every bodyless DELETE (sign-out, reset-plans, delete-account) did.
+        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(options.authenticated !== false && session
           ? { Authorization: `Bearer ${session.accessToken}` }
           : {}),
