@@ -27,7 +27,7 @@ export default function BodyMetricsScreen() {
       subtitle="We'll use this to calculate your training zones and intensity"
       progress={stepProgress('body-metrics', answers.hasRace)}
       onNext={() => router.push('/fitness-heart-ftp')}>
-      <FieldCaption>Height</FieldCaption>
+      <FieldCaption style={styles.caption}>Height</FieldCaption>
       <View style={styles.row}>
         <WheelPicker
           min={100}
@@ -47,7 +47,7 @@ export default function BodyMetricsScreen() {
       </View>
 
       <View style={styles.section}>
-        <FieldCaption>Weight</FieldCaption>
+        <FieldCaption style={styles.caption}>Weight</FieldCaption>
         <View style={styles.row}>
           <WheelPicker
             min={35}
@@ -68,7 +68,7 @@ export default function BodyMetricsScreen() {
       </View>
 
       <View style={styles.section}>
-        <FieldCaption>Gender</FieldCaption>
+        <FieldCaption style={styles.caption}>Gender</FieldCaption>
         <View style={styles.genderRow}>
           {(['male', 'female'] as const).map(value => {
             const active = answers.gender === value;
@@ -139,8 +139,13 @@ function UnitToggle<T extends string>({
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   row: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
   },

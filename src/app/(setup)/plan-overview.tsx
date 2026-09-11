@@ -30,23 +30,20 @@ import { stepProgress } from './flow-order';
 const PLAN_ARTWORK = 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800';
 
 /** What `personal-details.tsx` shows when nothing has been picked yet. */
-const DEFAULT_DOB = { day: 1, month: 2, year: 95 };
+const DEFAULT_DOB = { day: 1, month: 2, year: new Date().getFullYear() - 30 };
 
 function ageFrom(dob: { day: number; month: number; year: number } | null): number | null {
   if (!dob) return null;
-  const fullYear = dob.year < 100 ? 1900 + dob.year : dob.year;
   const now = new Date();
-  let age = now.getFullYear() - fullYear;
+  let age = now.getFullYear() - dob.year;
   const hasHadBirthdayThisYear =
     now.getMonth() + 1 > dob.month || (now.getMonth() + 1 === dob.month && now.getDate() >= dob.day);
   if (!hasHadBirthdayThisYear) age -= 1;
   return age;
 }
 
-/** The wheel picker's two-digit year is 19xx for anything not implausibly old. */
 function dateFrom(dob: { day: number; month: number; year: number }): Date {
-  const fullYear = dob.year < 100 ? 1900 + dob.year : dob.year;
-  return new Date(fullYear, dob.month - 1, dob.day);
+  return new Date(dob.year, dob.month - 1, dob.day);
 }
 
 /** The flow's three-way gender maps onto the profile's `UserSex` two-for-one:

@@ -19,11 +19,19 @@ import { stepProgress } from './flow-order';
 
 const Months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/**
+ * A two-digit year wheel (30-99) could never reach anyone born after 1999,
+ * and was ambiguous besides — "05" could mean 1905 or 2005. Full four-digit
+ * years, up to this year, fix both at once.
+ */
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_BIRTH_YEAR = CURRENT_YEAR - 100;
+
 export default function PersonalDetailsScreen() {
   useScreenTracking('Personal details');
   const theme = useTheme();
   const { answers, update } = useOnboardingFlow();
-  const dob = answers.dateOfBirth ?? { day: 1, month: 2, year: 95 };
+  const dob = answers.dateOfBirth ?? { day: 1, month: 2, year: CURRENT_YEAR - 30 };
 
   function setDob(patch: Partial<typeof dob>) {
     update({ dateOfBirth: { ...dob, ...patch } });
@@ -75,14 +83,14 @@ export default function PersonalDetailsScreen() {
           </View>
           <View style={styles.dobColumn}>
             <ThemedText themeColor="textSecondary" style={styles.dobHeader}>
-              YY
+              YYYY
             </ThemedText>
             <WheelPicker
-              min={30}
-              max={99}
+              min={MIN_BIRTH_YEAR}
+              max={CURRENT_YEAR}
               value={dob.year}
               onChange={year => setDob({ year })}
-              width={90}
+              width={120}
             />
           </View>
         </View>
