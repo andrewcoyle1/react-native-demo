@@ -13,8 +13,27 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+/*
+ * The app's only stylesheet import, and the entry point of the whole NativeWind
+ * pipeline: react-native-css has no `input` option, it compiles whichever
+ * `.css` file the bundle reaches. It belongs at the root, before any screen.
+ *
+ * Below the `react-native` import above, and that ordering is load-bearing.
+ * Imports evaluate in source order, and this one pulls in react-native-css's
+ * runtime, whose `native/reactivity.ts` calls `Dimensions.get("window")` at
+ * module scope. Reached before React Native has initialised, `Dimensions` is
+ * undefined and the app dies with "Cannot read property 'get' of undefined"
+ * before the runtime is ready — which is exactly what `@expo/log-box`'s own
+ * stylesheet used to cause from inside `expo-router/entry`, until
+ * `metro-css-transformer.js` stopped that file being compiled as one.
+ *
+ * Keeping `react-native` first means this file cannot be the one to do it.
+ */
+import '@/global.css';
+
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
+import { DevicePreferencesProvider } from '@/providers/device-preferences';
 import { NotesProvider } from '@/providers/notes-provider';
 import { SettingsProvider } from '@/providers/settings-provider';
 import { UserProvider, useUser } from '@/providers/user-provider';
@@ -32,19 +51,23 @@ export default function RootLayout() {
        it — the Plan tab's week swipe is the first of them. */
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AuthProvider service={services.auth}>
-          {/* Below AuthProvider: both read the signed-in uid from it. */}
-          <UserProvider service={services.user}>
-            {/* Above the navigator rather than inside `(main)`: the profile's
-                settings modals are root-level routes, so a provider mounted
-                below this point would not reach them. */}
-            <SettingsProvider service={services.settings}>
-              <NotesProvider service={services.notes}>
-                <RootNavigator />
-              </NotesProvider>
-            </SettingsProvider>
-          </UserProvider>
-        </AuthProvider>
+        {/* Outside AuthProvider on purpose: these belong to the install, not to
+            the athlete, so signing out must not reset them. */}
+        <DevicePreferencesProvider>
+          <AuthProvider service={services.auth}>
+            {/* Below AuthProvider: both read the signed-in uid from it. */}
+            <UserProvider service={services.user}>
+              {/* Above the navigator rather than inside `(main)`: the profile's
+                  settings modals are root-level routes, so a provider mounted
+                  below this point would not reach them. */}
+              <SettingsProvider service={services.settings}>
+                <NotesProvider service={services.notes}>
+                  <RootNavigator />
+                </NotesProvider>
+              </SettingsProvider>
+            </UserProvider>
+          </AuthProvider>
+        </DevicePreferencesProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
