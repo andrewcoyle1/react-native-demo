@@ -1,0 +1,121 @@
+/**
+ * The ground the alternate UI sits on.
+ *
+ * Four layers, bottom to top: the themed page colour, a photograph, a scrim
+ * that pushes it back, and a dot grid over everything. It is the treatment the
+ * "What's new" sheet already uses — `app/sheet.tsx` owns the same dot texture —
+ * extended with artwork so the dashboard has a ground of its own rather than a
+ * flat fill.
+ *
+ * The photograph is deliberately barely there. At this opacity the motion blur
+ * reads as a diagonal band of light behind the cards rather than as a picture,
+ * which is the point: it gives the page depth without competing with the plan
+ * card, which has artwork of its own and has to stay the loudest thing on the
+ * screen.
+ *
+ * The gradient and the dot grid are inline `experimental_backgroundImage`
+ * styles rather than Tailwind arbitrary values. Gradients through NativeWind's
+ * class parser are unproven on this preview release, and this is the form the
+ * app already ships and renders correctly in `sheet.tsx` — worth more here than
+ * consistency with the class-name rule.
+ *
+ * Every layer is `pointerEvents="none"`: they are decoration, and the scroll
+ * view above them must get every touch.
+ */
+import { Image } from 'expo-image';
+import type { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { Box } from '@/components/ui/box';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+/**
+ * The dot grid, and the gradient that holds the photograph back.
+ *
+ * Both come in two appearances, and they have to: each is a fixed colour laid
+ * over the page, so the dark pair over a white page is what the first version
+ * of this did — a grey wash that swallowed the day captions whole.
+ *
+ * The dark values are the ones `app/sheet.tsx` already ships. The light pair
+ * mirrors their *relationships* rather than their colours: the grid darkens the
+ * page instead of lightening it, and the gradient is built from the light
+ * page's own white rather than from the dark page's near-black.
+ */
+const Texture = {
+  dark: 'radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.055) 0px, rgba(255, 255, 255, 0.055) 1px, transparent 1.6px)',
+  light:
+    'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 0px, rgba(0, 0, 0, 0.05) 1px, transparent 1.6px)',
+} as const;
+
+/*
+ * Darkest at the very top and the very bottom, lightest across the middle.
+ *
+ * The header sits over the top of this and the floating tab bar over the
+ * bottom, so those are the two bands where the photograph would interfere with
+ * chrome rather than sit behind content. The middle is left open, which is
+ * where the band of light lands.
+ *
+ * The light gradient is heavier throughout. White text on a photograph needs
+ * only to out-contrast it; the light page's secondary text is mid-grey, and
+ * mid-grey over an arbitrary photo is unreadable at any opacity that still
+ * shows the photo — so in light mode the artwork is a suggestion rather than
+ * an image.
+ */
+const Scrim = {
+  dark: 'linear-gradient(180deg, rgba(16, 16, 16, 0.92) 0%, rgba(16, 16, 16, 0.55) 18%, rgba(16, 16, 16, 0.4) 55%, rgba(16, 16, 16, 0.75) 82%, rgba(16, 16, 16, 0.95) 100%)',
+  light:
+    'linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.86) 18%, rgba(255, 255, 255, 0.8) 55%, rgba(255, 255, 255, 0.9) 82%, rgba(255, 255, 255, 0.98) 100%)',
+} as const;
+
+export function AltScreenBackground({ children }: { children: ReactNode }) {
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+
+  return (
+    <Box className="flex-1 bg-background">
+      <Image
+        source={require('@/assets/images/dashboard-backdrop.jpg')}
+        style={[StyleSheet.absoluteFill, styles.photo]}
+        contentFit="cover"
+        /* Decorative: it carries no information, and naming it to a screen
+           reader would interrupt the content that does. */
+        accessible={false}
+        pointerEvents="none"
+      />
+
+      <View
+        style={[StyleSheet.absoluteFill, { experimental_backgroundImage: Scrim[scheme] }]}
+        pointerEvents="none"
+      />
+
+      {/* Last, so the grid lies over the photograph rather than under it —
+          which is what makes the two read as one surface instead of a picture
+          with a pattern next to it. */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.texture,
+          { experimental_backgroundImage: Texture[scheme] },
+        ]}
+        pointerEvents="none"
+      />
+
+      {children}
+    </Box>
+  );
+}
+
+const styles = StyleSheet.create({
+  photo: {
+    /*
+     * Low enough that the source is unrecognisable as a photograph. The image
+     * is a bright monochrome motion blur, so even a fifth of it lifts the page
+     * noticeably; more than this and the cards start to sit on texture rather
+     * than on a ground.
+     */
+    opacity: 0.22,
+  },
+  texture: {
+    experimental_backgroundSize: '12px 12px',
+    experimental_backgroundRepeat: 'repeat',
+  },
+});

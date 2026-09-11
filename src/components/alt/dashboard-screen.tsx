@@ -55,6 +55,7 @@ import { VStack } from '@/components/ui/vstack';
    glyph, and the disciplines are the one place this screen needs them. */
 import { Icon as SymbolIcon } from '@/components/icon';
 import { AltCarousel } from './carousel';
+import { AltScreenBackground } from './screen-background';
 import { AccentFillOpacity, Accents, BottomTabInset } from '@/constants/theme';
 
 export type AltPlan = {
@@ -115,62 +116,66 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="px-4 pt-4 gap-5"
-      contentInsetAdjustmentBehavior="automatic">
-      {/* Full-bleed, so the neighbouring pages can peek in at the screen edges.
-          `-mx-4` cancels the scroll content's own gutter for this block alone —
-          everything below it keeps the page margin. */}
-      <Box className="-mx-4">
-        <AltCarousel
-          accessibilityLabel="Your plans"
-          addPage={<AddPlanPage onPress={model.onOpenSheet} />}>
-          {model.plans.map(plan => (
-            <PlanPage key={plan.id} plan={plan} />
-          ))}
-        </AltCarousel>
-      </Box>
+    /* Transparent scroller over the background's layers: a `bg-background` here
+       would paint straight over the photograph and the dot grid. */
+    <AltScreenBackground>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-4 pt-4 gap-5"
+        contentInsetAdjustmentBehavior="automatic">
+        {/* Full-bleed, so the neighbouring pages can peek in at the screen edges.
+            `-mx-4` cancels the scroll content's own gutter for this block alone —
+            everything below it keeps the page margin. */}
+        <Box className="-mx-4">
+          <AltCarousel
+            accessibilityLabel="Your plans"
+            addPage={<AddPlanPage onPress={model.onOpenSheet} />}>
+            {model.plans.map(plan => (
+              <PlanPage key={plan.id} plan={plan} />
+            ))}
+          </AltCarousel>
+        </Box>
 
-      <ActionRow
-        icon="calendar"
-        accent={Accents.schedule}
-        title="Update Your Schedule"
-        subtitle="Your days, commitments and B/C races"
-        onPress={model.onOpenSheet}
-      />
+        <ActionRow
+          icon="calendar"
+          accent={Accents.schedule}
+          title="Update Your Schedule"
+          subtitle="Your days, commitments and B/C races"
+          onPress={model.onOpenSheet}
+        />
 
-      {model.days.map(day => (
-        <DayCard key={day.id} day={day} onSessionPress={model.onOpenSheet} />
-      ))}
+        {model.days.map(day => (
+          <DayCard key={day.id} day={day} onSessionPress={model.onOpenSheet} />
+        ))}
 
-      {/* An empty week is a real state — a rest week, or a plan that has not
-          generated yet — and saying so beats an unexplained gap. */}
-      {model.days.length === 0 && model.error === null ? (
-        <Text size="sm" className="text-muted-foreground text-center">
-          Nothing scheduled this week.
-        </Text>
-      ) : null}
+        {/* An empty week is a real state — a rest week, or a plan that has not
+            generated yet — and saying so beats an unexplained gap. */}
+        {model.days.length === 0 && model.error === null ? (
+          <Text size="sm" className="text-muted-foreground text-center">
+            Nothing scheduled this week.
+          </Text>
+        ) : null}
 
-      {model.error ? (
-        <Text size="sm" className="text-destructive text-center" accessibilityRole="alert">
-          Your plan could not be loaded. {model.error}
-        </Text>
-      ) : null}
+        {model.error ? (
+          <Text size="sm" className="text-destructive text-center" accessibilityRole="alert">
+            Your plan could not be loaded. {model.error}
+          </Text>
+        ) : null}
 
-      <ActionRow
-        icon="calendar.badge.plus"
-        accent={Accents.commitment}
-        title="Looking for more workouts?"
-        subtitle="See your full plan, further into the future"
-        onPress={model.onOpenPlan}
-      />
+        <ActionRow
+          icon="calendar.badge.plus"
+          accent={Accents.commitment}
+          title="Looking for more workouts?"
+          subtitle="See your full plan, further into the future"
+          onPress={model.onOpenPlan}
+        />
 
-      {/* The tab bar floats over the scroller. A spacer rather than a
-          `contentContainerStyle` beside the className above — one mechanism per
-          prop. `alt/profile-screen.tsx` says more. */}
-      <View style={{ height: insets.bottom + BottomTabInset }} />
-    </ScrollView>
+        {/* The tab bar floats over the scroller. A spacer rather than a
+            `contentContainerStyle` beside the className above — one mechanism
+            per prop. `alt/profile-screen.tsx` says more. */}
+        <View style={{ height: insets.bottom + BottomTabInset }} />
+      </ScrollView>
+    </AltScreenBackground>
   );
 }
 
