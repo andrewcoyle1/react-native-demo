@@ -38,6 +38,8 @@
       "@react-native-firebase/auth",
       "@react-native-firebase/analytics",
       "@react-native-firebase/crashlytics",
+      "./plugins/with-crashlytics-gsp",
+      "./plugins/with-firebase-scene-init",
       [
         "expo-build-properties",
         {
@@ -46,7 +48,9 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

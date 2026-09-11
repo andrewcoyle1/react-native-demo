@@ -18,8 +18,7 @@ import { Easing, Pressable, StyleSheet, View, useWindowDimensions } from 'react-
 
 import { useTheme } from '@/hooks/use-theme';
 
-import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
-import { CommonActions } from 'expo-router/build/react-navigation/routers';
+import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs/index';
 
 /** Liquid glass is iOS 26+; elsewhere the bar needs a solid fill to read. */
 const glassAvailable = isLiquidGlassAvailable();
@@ -140,7 +139,7 @@ export default function AppTabs() {
   );
 }
 
-function AppTabBar({ state, navigation }: BottomTabBarProps) {
+function AppTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const theme = useTheme();
 
   return (
@@ -172,15 +171,15 @@ function AppTabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityState={{ selected: focused }}
               accessibilityLabel={tab.label}
               onPress={() => {
-                // `navigate` rather than a raw jump: it is what lets the
+                // `navigateToTab` rather than a raw jump: it is what lets the
                 // navigator resolve the direction from the tabs' order.
-                const event = navigation.emit({
+                const event = emitter.emit({
                   type: 'tabPress',
                   target: route.key,
                   canPreventDefault: true,
                 });
                 if (!focused && !event.defaultPrevented) {
-                  navigation.dispatch({ ...CommonActions.navigate(route), target: state.key });
+                  navigateToTab(route.key);
                 }
               }}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
