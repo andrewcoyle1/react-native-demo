@@ -242,6 +242,51 @@ export type ScheduleDraft = {
   commitments: CommitmentDTO[];
 };
 
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+
+export type AthleteMetricsDTO = {
+  heightCm: number | null;
+  weightKg: number | null;
+  heartRateMin: number | null;
+  heartRateMax: number | null;
+  cyclingFtp: number | null;
+  runPaceSecondsPerKm: number | null;
+  swimPaceSecondsPer100m: number | null;
+  modifiedAt: Instant | null;
+};
+
+export type OnboardingCompleteRequest = {
+  profile: { name: string; dateOfBirth: DayKey; sex: UserDTO['sex']; timezone: string };
+  units: UnitSystem;
+  metrics: {
+    heightCm?: number;
+    weightKg?: number;
+    heartRateMin?: number;
+    heartRateMax?: number;
+    cyclingFtp?: number;
+    runPaceSecondsPerKm?: number;
+    swimPaceSecondsPer100m?: number;
+  };
+  schedule: { availableMinutes: number[]; commitments: Omit<CommitmentDTO, 'id'>[] };
+  race?: {
+    name: string;
+    place: string;
+    date: DayKey;
+    priority: RaceDTO['priority'];
+    targetSeconds: number | null;
+    legs: RaceLegDTO[];
+  } | null;
+  weeklyHours: number;
+};
+
+export type OnboardingCompleteResponse = {
+  profile: UserDTO;
+  metrics: AthleteMetricsDTO;
+  schedule: ScheduleDTO;
+  race: RaceDTO | null;
+  plan: PlanDTO;
+};
+
 // ─── Activities ──────────────────────────────────────────────────────────────
 
 export type RoutePointDTO = { x: number; y: number };

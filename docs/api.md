@@ -234,6 +234,51 @@ may not have a profile yet; the profile read surfaces it for convenience.
 today. `formatDistance` and `formatSpeed` already take it as a parameter, so the
 whole app switches to imperial the moment this field is honoured.
 
+### Onboarding
+
+`POST /v1/onboarding/complete` — the single call "Personalise my plan" makes.
+Saves the profile, athlete metrics, schedule and an optional goal race in one
+transaction, and — the first time — generates a plan and its opening week of
+sessions.
+
+```ts
+type OnboardingCompleteRequest = {
+  profile: { name: string; dateOfBirth: string; sex: 'male' | 'female' | 'other'; timezone: string };
+  units: 'metric' | 'imperial';
+  metrics: {
+    heightCm?: number;
+    weightKg?: number;
+    heartRateMin?: number;
+    heartRateMax?: number;
+    cyclingFtp?: number;
+    runPaceSecondsPerKm?: number;
+    swimPaceSecondsPer100m?: number;
+  };
+  schedule: { availableMinutes: number[]; commitments: { label: string; weekday: number; discipline: Discipline | null }[] };
+  race?: {
+    name: string; place: string; date: string; priority: 'A' | 'B' | 'C';
+    targetSeconds: number | null; legs: { discipline: Discipline; distanceMetres: number }[];
+  } | null;
+  weeklyHours: number;
+};
+
+type OnboardingCompleteResponse = {
+  profile: UserDTO;
+  metrics: AthleteMetricsDTO;   // as `athlete_metrics`, one row per athlete
+  schedule: ScheduleDTO;
+  race: RaceDTO | null;
+  plan: PlanDTO;
+};
+```
+
+Idempotent: calling it again (a retry, or backing up through onboarding and
+resubmitting) still saves a fresh profile, metrics and schedule, but does not
+generate a second plan — an athlete who already has a `current` or `upcoming`
+plan gets that one back unchanged. Session planning itself is intentionally
+naive for now — one session per day the schedule marks available, rotating
+through run/ride/swim — a starting point rather than a real training
+programme; richer generation is open work.
+
 ### Sessions
 
 | | |

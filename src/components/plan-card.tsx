@@ -57,6 +57,8 @@ type PlanCardProps = {
   currentBarIndex?: number;
   /** How much of the current week is complete, 0-1. */
   currentBarProgress?: number;
+  /** What the current bar's label reads — actual hours trained, not planned. */
+  currentBarLabel?: number;
   /** Tallest bar's height in points. */
   chartHeight?: number;
   /** Adds the overflow button in the card's top-right corner. */
@@ -78,6 +80,7 @@ export function PlanCard({
   bars,
   currentBarIndex,
   currentBarProgress,
+  currentBarLabel,
   chartHeight = 70,
   onMenuPress,
   children,
@@ -240,6 +243,7 @@ export function PlanCard({
           bars={bars}
           currentIndex={currentBarIndex}
           currentProgress={currentBarProgress}
+          currentLabelValue={currentBarLabel}
           height={chartHeight}
           style={styles.chart}
         />

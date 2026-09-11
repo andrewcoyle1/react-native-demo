@@ -11,14 +11,34 @@ import { formatDayCount, formatDistance, formatDuration, trimDecimal } from '@/d
 import { daysBetween, toDateKey, type UnitSystem } from '@/domain/training';
 import type { PlanModel, RaceModel } from '@/providers/training-provider';
 
-/** Everything `PlanCard` needs, bar the handlers and style the screen supplies. */
-export function toPlanCardProps(plan: PlanModel, race: RaceModel | null, today = toDateKey(new Date())) {
+/**
+ * Everything `PlanCard` needs, bar the handlers and style the screen supplies.
+ *
+ * `actualHoursThisWeek` is optional and, when given, overrides both the
+ * current bar's label and its fill: the bar itself still plots the planned
+ * figure (that dashed outline is the week's target), but what the athlete
+ * actually trained is what the label and the fill should read — not the plan.
+ * Omit it and both fall back to the plan's own stored `currentWeekProgress`,
+ * which is what a caller not tracking activities yet still gets.
+ */
+export function toPlanCardProps(
+  plan: PlanModel,
+  race: RaceModel | null,
+  today = toDateKey(new Date()),
+  actualHoursThisWeek?: number,
+) {
   const active = plan.status === 'current';
+
+  const plannedThisWeek = plan.currentWeekIndex !== null ? plan.weeklyPlannedHours[plan.currentWeekIndex] : undefined;
 
   const chart = {
     bars: plan.weeklyPlannedHours,
     currentBarIndex: plan.currentWeekIndex ?? undefined,
-    currentBarProgress: plan.currentWeekProgress ?? undefined,
+    currentBarProgress:
+      actualHoursThisWeek !== undefined && plannedThisWeek
+        ? Math.min(actualHoursThisWeek / plannedThisWeek, 1)
+        : (plan.currentWeekProgress ?? undefined),
+    currentBarLabel: actualHoursThisWeek !== undefined ? Math.round(actualHoursThisWeek * 10) / 10 : undefined,
     backgroundImage: plan.artworkUrl ?? undefined,
   };
 

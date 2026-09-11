@@ -17,6 +17,10 @@ import { mockAuthService } from '@/providers/auth-provider/services/mock-auth-se
 import { firebaseNotesService } from '@/providers/notes-provider/services/firebase-notes-service';
 import { mockNotesService } from '@/providers/notes-provider/services/mock-notes-service';
 import type { NotesService } from '@/providers/notes-provider/services/notes-service';
+import { apiOnboardingService } from '@/services/onboarding/api-onboarding-service';
+import { firebaseOnboardingService } from '@/services/onboarding/firebase-onboarding-service';
+import { mockOnboardingService } from '@/services/onboarding/mock-onboarding-service';
+import type { OnboardingService } from '@/services/onboarding/onboarding-service';
 import { apiSessionsService } from '@/providers/sessions-provider/services/api-sessions-service';
 import { firebaseSessionsService } from '@/providers/sessions-provider/services/firebase-sessions-service';
 import { mockSessionsService } from '@/providers/sessions-provider/services/mock-sessions-service';
@@ -41,6 +45,7 @@ export type Services = {
   activities: ActivitiesService;
   auth: AuthService;
   notes: NotesService;
+  onboarding: OnboardingService;
   sessions: SessionsService;
   training: TrainingService;
   trends: TrendsService;
@@ -58,6 +63,7 @@ export const services: Services = isMock
       activities: mockActivitiesService,
       auth: mockAuthService,
       notes: mockNotesService,
+      onboarding: mockOnboardingService,
       sessions: mockSessionsService,
       training: mockTrainingService,
       trends: mockTrendsService,
@@ -68,6 +74,7 @@ export const services: Services = isMock
       activities: isApi ? apiActivitiesService : firebaseActivitiesService,
       auth: isApi ? apiAuthService : firebaseAuthService,
       notes: firebaseNotesService,
+      onboarding: isApi ? apiOnboardingService : firebaseOnboardingService,
       sessions: isApi ? apiSessionsService : firebaseSessionsService,
       training: isApi ? apiTrainingService : firebaseTrainingService,
       trends: isApi ? apiTrendsService : firebaseTrendsService,

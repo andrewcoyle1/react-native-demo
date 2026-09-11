@@ -13,24 +13,52 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WorkoutCard } from '@/components/workout-card';
 import { Accents, Spacing } from '@/constants/theme';
-import { daysBetween, toDateKey } from '@/domain/training';
+import { daysBetween, toDateKey, type DateRange } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { toPlanCardProps } from '@/presenters/plan-presenter';
 import { toWorkoutCardProps } from '@/presenters/session-presenter';
 import { useAuth } from '@/providers/auth-provider';
 import { useSessions, type SessionModel } from '@/providers/sessions-provider';
 import { useTraining } from '@/providers/training-provider';
+import { TrendsProvider, useTrends } from '@/providers/trends-provider';
+import { services } from '@/services/container';
+
+/** Monday-to-Sunday around today, in the athlete's own local calendar. */
+function currentWeekWindow(): DateRange {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: toDateKey(monday), to: toDateKey(sunday) };
+}
 
 export default function DashboardScreen() {
+  const window = useMemo(() => currentWeekWindow(), []);
+
+  return (
+    <TrendsProvider window={window} service={services.trends}>
+      <DashboardBody />
+    </TrendsProvider>
+  );
+}
+
+function DashboardBody() {
   useScreenTracking('Dashboard');
 
   const { user } = useAuth();
   const { state, byDate } = useSessions();
   const { plans: planState, raceFor } = useTraining();
+  const { state: trends } = useTrends();
 
   // An empty list while loading or on error: the carousel keeps its "add plan"
   // page, which is what an athlete with no plans should see anyway.
   const plans = planState.status === 'ready' ? planState.data : [];
+
+  // Only meaningful for the plan under way, and only once it has arrived —
+  // an active plan card falls back to the plan's own stored progress until it
+  // does, rather than showing a zero that is not really zero.
+  const actualHoursThisWeek = trends.status === 'ready' ? trends.data.completed.durationSeconds / 3600 : undefined;
 
   /**
    * One section per day that has sessions. `meta` carries the offset the heading
@@ -81,7 +109,12 @@ export default function DashboardScreen() {
             {plans.map(plan => (
               <PlanCard
                 key={plan.id}
-                {...toPlanCardProps(plan, raceFor(plan))}
+                {...toPlanCardProps(
+                  plan,
+                  raceFor(plan),
+                  undefined,
+                  plan.status === 'current' ? actualHoursThisWeek : undefined,
+                )}
                 onMenuPress={() => router.push('/sheet')}
                 style={styles.slide}
               />

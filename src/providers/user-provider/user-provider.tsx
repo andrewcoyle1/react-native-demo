@@ -24,6 +24,13 @@ type UserContextValue = {
   state: UserState;
   create: (draft: UserDraft) => Promise<void>;
   update: (changes: Partial<UserDraft>) => Promise<void>;
+  /**
+   * Re-fetches without writing anything. For a caller that wrote the profile
+   * through a different seam — onboarding completion posts one combined
+   * request rather than going through `create` — and still needs `absent` to
+   * flip to `ready` once that write lands.
+   */
+  refresh: () => void;
 };
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -89,6 +96,8 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
     [uid, service],
   );
 
+  const refresh = useCallback(() => setProfileEpoch(epoch => epoch + 1), []);
+
   const value = useMemo<UserContextValue>(() => {
     // Derived rather than stored, so signedOut can never disagree with `uid`.
     // A null document is the profile-shaped case the hook cannot know about:
@@ -101,8 +110,8 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
           : { status: 'absent' }
         : remote;
 
-    return { state, create, update };
-  }, [remote, create, update]);
+    return { state, create, update, refresh };
+  }, [remote, create, update, refresh]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

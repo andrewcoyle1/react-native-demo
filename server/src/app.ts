@@ -12,6 +12,7 @@ import { config } from './config.ts';
 import { ApiError } from './errors.ts';
 import { registerRateLimit } from './plugins/rate-limit.ts';
 import { profileRoutes } from './profile/routes.ts';
+import { onboardingRoutes } from './onboarding/routes.ts';
 import { activityRoutes } from './activities/routes.ts';
 import { sessionRoutes } from './sessions/routes.ts';
 import { trainingRoutes } from './training/routes.ts';
@@ -121,6 +122,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   app.register(authRoutes, { rateLimit: options.rateLimit });
   app.register(profileRoutes);
+  app.register(onboardingRoutes);
   app.register(trainingRoutes);
   app.register(sessionRoutes);
   app.register(activityRoutes);

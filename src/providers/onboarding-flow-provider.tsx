@@ -2,12 +2,10 @@
  * In-memory state for the personalisation flow — the ~25 screens between
  * "verify your email" and the plan overview.
  *
- * Nothing here is persisted or sent anywhere yet: the backend does not have
- * an endpoint to receive it, and plan generation itself is an open product
- * question (see the data-layer plan). This provider exists so the screens can
- * be built and navigated end to end now, with a single, obvious seam —
- * `submit()` — where wiring the real request lands later without touching
- * any screen.
+ * Nothing here is persisted until the last screen: `plan-overview.tsx` reads
+ * the whole of `answers` back and sends it in one request through
+ * `services.onboarding` when "Personalise my plan" is pressed. This provider
+ * only holds the in-progress draft.
  *
  * Every field is optional because the flow branches (a race answers the
  * distance question a different way than "no race planned" does) and a
@@ -98,9 +96,6 @@ const defaultAnswers: OnboardingAnswers = {
 type OnboardingFlowContextValue = {
   answers: OnboardingAnswers;
   update: (patch: Partial<OnboardingAnswers>) => void;
-  /** The seam: once the backend has somewhere to send this, this is the only
-      function that needs a body. */
-  submit: () => Promise<void>;
 };
 
 const OnboardingFlowContext = createContext<OnboardingFlowContextValue | null>(null);
@@ -112,11 +107,6 @@ export function OnboardingFlowProvider({ children }: { children: ReactNode }) {
     () => ({
       answers,
       update: patch => setAnswers(current => ({ ...current, ...patch })),
-      submit: async () => {
-        // No endpoint yet — plan generation is still an open product
-        // question. The screens ahead of this point already read back
-        // everything they need from `answers` for the plan-overview summary.
-      },
     }),
     [answers],
   );
