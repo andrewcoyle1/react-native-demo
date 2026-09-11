@@ -100,8 +100,19 @@ function scheduleFor(uid: string): ScheduleModel | null {
   return schedules.get(uid) ?? null;
 }
 
+/** Mutable so "Reset Training Plans" has something real to empty. */
+const plans = new Map<string, PlanModel[]>();
+
+function plansFor(uid: string): PlanModel[] {
+  if (!plans.has(uid)) {
+    plans.set(uid, uid === MOCK_EMPTY_UID ? [] : [...PLANS]);
+  }
+  return plans.get(uid)!;
+}
+
 type Listener = { uid: string; deliver: () => void };
 const scheduleListeners = new Set<Listener>();
+const planListeners = new Set<Listener>();
 
 /** Delivers once on the next tick, so a consumer always sees `loading` first. */
 function deferred(deliver: () => void) {
@@ -111,7 +122,15 @@ function deferred(deliver: () => void) {
 
 export const mockTrainingService: TrainingService = {
   subscribePlans(uid, onPlans, _onError) {
-    return deferred(() => onPlans(uid === MOCK_EMPTY_UID ? [] : PLANS));
+    const deliver = () => onPlans(plansFor(uid));
+    const cancel = deferred(deliver);
+    const listener: Listener = { uid, deliver };
+    planListeners.add(listener);
+
+    return () => {
+      cancel();
+      planListeners.delete(listener);
+    };
   },
 
   subscribeRaces(uid, onRaces, _onError) {
@@ -136,6 +155,15 @@ export const mockTrainingService: TrainingService = {
       schedules.set(uid, { ...existing, ...changes, modifiedAt: new Date() });
     });
     scheduleListeners.forEach(listener => {
+      if (listener.uid === uid) {
+        listener.deliver();
+      }
+    });
+  },
+
+  async resetPlans(uid) {
+    await settle(() => plans.set(uid, []));
+    planListeners.forEach(listener => {
       if (listener.uid === uid) {
         listener.deliver();
       }

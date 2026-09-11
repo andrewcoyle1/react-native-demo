@@ -1,8 +1,10 @@
 /**
  * `/v1/plans`, `/v1/races` and `/v1/schedule`.
  *
- * Two of the three are read-only, and that is enforced by there being no route
- * to write them rather than by a check inside one.
+ * Races and the plan collection's *contents* are read-only, enforced by there
+ * being no route to write them rather than by a check inside one. The one
+ * exception is `DELETE /v1/plans`, which only ever empties the collection —
+ * an athlete resetting their training plan — never creates or edits a plan.
  */
 import type { FastifyInstance } from 'fastify';
 
@@ -40,6 +42,15 @@ export async function trainingRoutes(app: FastifyInstance): Promise<void> {
         );
 
       return training.readPlans(request.userId!, statuses?.length ? statuses : undefined);
+    },
+  );
+
+  app.delete(
+    '/v1/plans',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      await training.resetPlans(request.userId!);
+      reply.code(204);
     },
   );
 

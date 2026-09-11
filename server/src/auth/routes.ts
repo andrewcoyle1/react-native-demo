@@ -117,4 +117,15 @@ export async function authRoutes(
 
     return user;
   });
+
+  app.delete(
+    '/v1/auth/me',
+    // The global limit, not `limited`: this takes no credential of its own to
+    // attempt, only an access token the caller already had to have earned.
+    { preHandler: authenticate },
+    async (request, reply) => {
+      await auth.deleteAccount(request.userId!);
+      reply.code(204);
+    },
+  );
 }

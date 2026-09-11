@@ -47,4 +47,6 @@ export interface AuthService {
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Deletes the account and every row descended from it. Unrecoverable. */
+  deleteAccount(): Promise<void>;
 }

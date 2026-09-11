@@ -105,4 +105,12 @@ export interface TrainingService {
 
   /** The athlete's own data, and so the only write in this slice. */
   updateSchedule(uid: string, changes: Partial<ScheduleDraft>): Promise<void>;
+
+  /**
+   * Deletes every plan the athlete has, and with it every session those plans
+   * generated. The one exception to "plans are read-only": it only ever
+   * empties the collection for a fresh plan to be generated into, never
+   * creates or edits one. Races and recorded activities are untouched.
+   */
+  resetPlans(uid: string): Promise<void>;
 }

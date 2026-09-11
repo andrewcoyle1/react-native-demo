@@ -172,3 +172,17 @@ export async function hasSchedule(userId: string, db: Queryable): Promise<boolea
   const { rows } = await db.query('select 1 from schedules where user_id = $1', [userId]);
   return rows.length > 0;
 }
+
+/**
+ * Deletes every plan the athlete has, whatever its status. `sessions.plan_id
+ * references plans(id) on delete cascade`, so this also removes the planned
+ * sessions and their segments it generated — but not the athlete's races
+ * (their goal events are theirs regardless of what plan targets them) and not
+ * their recorded activities: `activities.session_id` is `on delete set null`,
+ * so a completed workout survives with its link to the deleted session
+ * cleared, exactly as it should when the plan that scheduled it is gone but
+ * the effort itself still happened.
+ */
+export async function deletePlans(userId: string, db: Queryable): Promise<void> {
+  await db.query('delete from plans where user_id = $1', [userId]);
+}

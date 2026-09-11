@@ -21,6 +21,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -53,6 +54,7 @@ export function AuthProvider({ children, service = firebaseAuthService }: AuthPr
       signIn: (email, password) => service.signIn(email, password),
       signUp: (email, password) => service.signUp(email, password),
       signOut: () => service.signOut(),
+      deleteAccount: () => service.deleteAccount(),
     }),
     [user, initializing, service],
   );

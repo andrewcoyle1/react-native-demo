@@ -210,4 +210,5 @@ export const api = {
     request<T>('PATCH', path, { ...options, body }),
   put: <T>(path: string, body?: unknown, options?: SendOptions) =>
     request<T>('PUT', path, { ...options, body }),
+  delete: <T>(path: string, options?: SendOptions) => request<T>('DELETE', path, options),
 };

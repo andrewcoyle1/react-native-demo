@@ -8,7 +8,7 @@
  *
  * Mounted inside `(main)`, so a uid is guaranteed and there is no `signedOut`.
  */
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { firebaseTrainingService } from './services/firebase-training-service';
@@ -37,6 +37,8 @@ type TrainingContextValue = {
   /** Resolves the race a plan builds towards, or null when there is none. */
   raceFor: (plan: PlanModel) => RaceModel | null;
   updateSchedule: (changes: Partial<ScheduleDraft>) => Promise<void>;
+  /** Deletes every plan, then re-subscribes so `plans` reflects it. */
+  resetPlans: () => Promise<void>;
 };
 
 const TrainingContext = createContext<TrainingContextValue | null>(null);
@@ -63,8 +65,18 @@ export function TrainingProvider({
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
+  /*
+   * Bumped after a reset so the plans key changes and `useSyncedSubscription`
+   * restarts its effect. Firestore's own `onSnapshot` would notice a batch
+   * delete on its own, and the mock keeps a listener set that does the same —
+   * but the API implementation is a one-shot fetch (see `docs/streaming.md`;
+   * this app has no live plan stream yet), so nothing re-reads it otherwise.
+   */
+  const [plansEpoch, setPlansEpoch] = useState(0);
+  const plansKey = uid ? `${uid}:${plansEpoch}` : null;
+
   const subscribePlans = useCallback<Subscribe<PlanModel[]>>(
-    (key, onData, onError) => service.subscribePlans(key, onData, onError),
+    (key, onData, onError) => service.subscribePlans(key.split(':')[0]!, onData, onError),
     [service],
   );
 
@@ -88,7 +100,7 @@ export function TrainingProvider({
    * Date and has to be rebuilt.
    */
   const plans =
-    useSyncedSubscription(uid, subscribePlans, {
+    useSyncedSubscription(plansKey, subscribePlans, {
       context: 'training: plans',
       cache: { name: 'plans', revive: raw => raw as PlanModel[] },
     }) ?? Loading;
@@ -114,6 +126,13 @@ export function TrainingProvider({
     [uid, service],
   );
 
+  const resetPlans = useCallback(async () => {
+    if (uid) {
+      await service.resetPlans(uid);
+      setPlansEpoch(epoch => epoch + 1);
+    }
+  }, [uid, service]);
+
   const value = useMemo<TrainingContextValue>(() => {
     const byId = new Map<string, RaceModel>();
     if (races.status === 'ready') {
@@ -128,8 +147,9 @@ export function TrainingProvider({
       schedule,
       raceFor: plan => (plan.raceId ? (byId.get(plan.raceId) ?? null) : null),
       updateSchedule,
+      resetPlans,
     };
-  }, [plans, races, schedule, updateSchedule]);
+  }, [plans, races, schedule, updateSchedule, resetPlans]);
 
   return <TrainingContext.Provider value={value}>{children}</TrainingContext.Provider>;
 }

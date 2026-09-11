@@ -104,6 +104,7 @@ around it is where the difficulty is.
 | `POST /v1/auth/refresh` | `{ refreshToken }` | `TokenPair` |
 | `POST /v1/auth/sign-out` | `{ refreshToken }` | 204 |
 | `GET /v1/auth/me` | — | `AuthUserDTO` |
+| `DELETE /v1/auth/me` | — authenticated | 204 — deletes the account and everything descended from it |
 
 ```ts
 type TokenPair = {
@@ -162,6 +163,13 @@ Two provider-specific traps, both permanent if missed:
 Email delivery for verification and password reset is the server's problem now.
 Until it exists, `emailVerified` may be stubbed `true`; the field stays in the
 contract so the app does not have to change when it becomes real.
+
+**`DELETE /v1/auth/me` is unrecoverable.** Every table references `users(id) on
+delete cascade`, so one statement removes the identity, every refresh token,
+the profile, races, plans, sessions and activities — there is no grace period
+or soft delete at this layer. The client is where confirmation belongs (a
+typed-confirmation dialog, not just an "are you sure?"), since by the time the
+request reaches here the athlete has already agreed.
 
 ---
 
@@ -284,6 +292,14 @@ cool-down.
 `GET /v1/plans?status=current,upcoming` — read-only. Ordered by `startDate`.
 Defaults to `current,upcoming`; completed plans are never returned unless asked
 for, because no screen shows one.
+
+`DELETE /v1/plans` — 204. The one exception to "read-only": deletes every plan
+the athlete has, of any status, and with them every session those plans
+generated (`sessions.plan_id` cascades). Races and recorded activities are
+untouched — a reset clears what was *planned*, not the athlete's goal events or
+what they actually did. This is what the profile screen's "Reset Training
+Plans" calls; the client is responsible for the athlete then reaching setup
+again to generate a new one.
 
 ```ts
 type PlanDTO = {

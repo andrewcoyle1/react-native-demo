@@ -2,8 +2,10 @@
  * Plans, races and the schedule.
  *
  * Plans and races are read-only here on purpose: the backend authors them, so
- * this file exposes no way for a request to create or change one. The schedule
- * is the athlete's, and is the only thing that writes.
+ * this file exposes no way for a request to create or *change* one. `resetPlans`
+ * is the sole exception, and deliberately a narrow one — it only ever empties
+ * the collection for a fresh generation to fill, never edits or adds to it.
+ * The schedule is the athlete's, and is the only thing that writes normally.
  */
 import type { CommitmentDTO, PlanDTO, RaceDTO, ScheduleDTO } from '../domain.ts';
 import { pool, transaction } from '../db.ts';
@@ -12,6 +14,16 @@ import * as q from './queries.ts';
 
 /** Completed plans are excluded unless asked for: no screen shows one. */
 const DEFAULT_STATUSES: PlanDTO['status'][] = ['current', 'upcoming'];
+
+/**
+ * Deletes every plan the athlete has, and with it every planned session it
+ * generated. The read-only comment at the top of this file is about the
+ * *client* never being able to author a plan — this is the one exception,
+ * and it only ever empties the collection, never adds to it.
+ */
+export function resetPlans(userId: string): Promise<void> {
+  return q.deletePlans(userId, pool);
+}
 
 export function readPlans(
   userId: string,

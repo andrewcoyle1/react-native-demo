@@ -201,3 +201,15 @@ export async function currentUser(userId: string): Promise<AuthUserDTO | null> {
   const user = await q.findUserById(userId);
   return user ? toAuthUser(user) : null;
 }
+
+/**
+ * Deletes the account and everything hanging off it, for `DELETE /v1/auth/me`.
+ *
+ * No confirmation or grace period at this layer — the client is where that
+ * belongs (a typed-confirmation dialog), since by the time a request reaches
+ * here the athlete has already agreed. One statement does the whole thing;
+ * see `deleteUser`'s comment for why.
+ */
+export async function deleteAccount(userId: string): Promise<void> {
+  await transaction(db => q.deleteUser(userId, db));
+}

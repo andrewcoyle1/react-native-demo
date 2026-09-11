@@ -157,3 +157,13 @@ export async function revokeFamily(familyId: string, db: Queryable): Promise<voi
     [familyId],
   );
 }
+
+/**
+ * Deletes the account outright. Every other table references `users(id) on
+ * delete cascade` (see the migrations), so one statement here is the whole
+ * of an athlete's data — identities, refresh tokens, profile, races, plans,
+ * sessions, activities — leaving nothing to clean up after it.
+ */
+export async function deleteUser(userId: string, db: Queryable): Promise<void> {
+  await db.query('delete from users where id = $1', [userId]);
+}

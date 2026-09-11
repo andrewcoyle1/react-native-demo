@@ -243,3 +243,60 @@ describe('me', () => {
     }
   });
 });
+
+describe('delete account', () => {
+  it('removes the account and every row that cascades from it', async () => {
+    const session = await signUp();
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/auth/me',
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    });
+    assert.equal(response.statusCode, 204);
+
+    const { rows } = await pool.query('select 1 from users where id = $1', [session.user.uid]);
+    assert.equal(rows.length, 0);
+  });
+
+  it('ends the session — the account is gone, not just signed out', async () => {
+    const session = await signUp();
+
+    await app.inject({
+      method: 'DELETE',
+      url: '/v1/auth/me',
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    });
+
+    const me = await app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    });
+    // The access token is still cryptographically valid for its own lifetime —
+    // deleting an account cannot revoke a JWT already issued — but the account
+    // it names no longer exists.
+    assert.equal(me.statusCode, 404);
+
+    const refreshed = await post('/v1/auth/refresh', { refreshToken: session.refreshToken });
+    assert.equal(refreshed.statusCode, 401);
+  });
+
+  it('requires authentication', async () => {
+    const response = await app.inject({ method: 'DELETE', url: '/v1/auth/me' });
+    assert.equal(response.statusCode, 401);
+  });
+
+  it('frees the email for a fresh sign-up', async () => {
+    const session = await signUp();
+
+    await app.inject({
+      method: 'DELETE',
+      url: '/v1/auth/me',
+      headers: { authorization: `Bearer ${session.accessToken}` },
+    });
+
+    const again = await post('/v1/auth/sign-up', CREDENTIALS);
+    assert.equal(again.statusCode, 201);
+  });
+});

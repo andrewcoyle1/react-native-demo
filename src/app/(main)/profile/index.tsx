@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { SymbolView } from 'expo-symbols';
 import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { ProfileCard } from '@/components/profile-card';
 import { Screen } from '@/components/screen';
@@ -57,9 +57,9 @@ function nameFromEmail(email: string | null) {
 export default function ProfileScreen() {
   useScreenTracking('Profile');
 
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
   const { state } = useUser();
-  const { races } = useTraining();
+  const { races, resetPlans } = useTraining();
 
   // The goal race is the A race: the one the plans build towards.
   const race =
@@ -68,6 +68,9 @@ export default function ProfileScreen() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dangerOpen, setDangerOpen] = useState(false);
+  const [resetPending, setResetPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [dangerError, setDangerError] = useState<string | null>(null);
 
   // The profile provider is the name's home; auth only knows an email, so that
   // is the fallback rather than the source. It reads as a name rather than as a
@@ -102,6 +105,67 @@ export default function ProfileScreen() {
       await Linking.openURL(url);
     } catch (caught) {
       reportError(caught, 'profile: openURL');
+    }
+  }
+
+  function confirmResetPlans() {
+    Alert.alert(
+      'Reset Training Plans?',
+      'This deletes your current and upcoming plans and every session in them. Your races and completed activities are not affected. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: handleResetPlans },
+      ],
+    );
+  }
+
+  async function handleResetPlans() {
+    setResetPending(true);
+    setDangerError(null);
+    try {
+      await resetPlans();
+      trackEvent('account_action_succeeded', { action: 'resetPlans' });
+      Alert.alert('Training plans reset', 'Head to the Plan tab to generate a new one.');
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : 'Something went wrong. Please try again.';
+      setDangerError(message);
+      reportError(caught, 'training: resetPlans');
+      trackEvent('account_action_failed', { action: 'resetPlans' });
+    } finally {
+      setResetPending(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete Account?',
+      'This permanently deletes your account and every piece of data attached to it — your plans, sessions, activities and races. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteAccount },
+      ],
+    );
+  }
+
+  async function handleDeleteAccount() {
+    setDeletePending(true);
+    setDangerError(null);
+    try {
+      await deleteAccount();
+      trackEvent('account_action_succeeded', { action: 'deleteAccount' });
+      // No navigation needed: clearing `user` flips the root guard, exactly as
+      // signing out does — the account this screen belongs to no longer exists.
+    } catch (caught) {
+      const failure =
+        caught instanceof AuthError
+          ? caught
+          : new AuthError('auth/unknown', 'Something went wrong.');
+      setDangerError(failure.message);
+      reportError(caught, 'auth: deleteAccount');
+      trackEvent('account_action_failed', { action: 'deleteAccount', code: failure.code });
+    } finally {
+      setDeletePending(false);
     }
   }
 
@@ -333,17 +397,25 @@ export default function ProfileScreen() {
               icon="exclamationmark.circle"
               iconAccent={Accents.equipment}
               accent={Accents.equipment}
-              title="Reset Training Plans"
-              subtitle="Resets your training plans and restarts your free trial. Cannot be undone."
+              title={resetPending ? 'Resetting…' : 'Reset Training Plans'}
+              subtitle="Resets your training plans so a new one can be generated. Cannot be undone."
+              onPress={resetPending || deletePending ? undefined : confirmResetPlans}
             />
             <SettingsRow
               icon="exclamationmark.circle"
               iconAccent={Accents.speed}
               accent={Accents.speed}
-              title="Delete Account"
+              title={deletePending ? 'Deleting…' : 'Delete Account'}
               subtitle="Permanently delete your account and all your data. Cannot be undone."
+              onPress={resetPending || deletePending ? undefined : confirmDeleteAccount}
             />
           </SettingsGroup>
+        ) : null}
+
+        {dangerError ? (
+          <ThemedText style={[styles.error, { color: Accents.speed }]} accessibilityRole="alert">
+            {dangerError}
+          </ThemedText>
         ) : null}
       </ThemedView>
     </Screen>

@@ -111,4 +111,8 @@ export const apiTrainingService: TrainingService = {
         : {}),
     });
   },
+
+  async resetPlans() {
+    await api.delete('/v1/plans');
+  },
 };

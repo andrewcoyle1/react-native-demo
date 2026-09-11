@@ -109,10 +109,12 @@ describe('plans', () => {
     assert.equal(current.startDate, '2026-09-02');
   });
 
-  it('has no route that writes one', async () => {
+  it('has no route that creates or edits one', async () => {
     const { token } = await signUp();
 
-    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'] as const) {
+    // DELETE is the one exception — a reset, never an edit — and is covered
+    // in its own describe block below.
+    for (const method of ['POST', 'PUT', 'PATCH'] as const) {
       const attempt = await app.inject({
         method,
         url: '/v1/plans',
@@ -134,6 +136,105 @@ describe('plans', () => {
       headers: authed(mine.token),
     });
     assert.deepEqual(response.json(), []);
+  });
+});
+
+describe('resetting plans', () => {
+  it('deletes every plan regardless of status', async () => {
+    const { token, uid } = await signUp();
+    await seedPlanAndRace(uid);
+
+    const reset = await app.inject({ method: 'DELETE', url: '/v1/plans', headers: authed(token) });
+    assert.equal(reset.statusCode, 204);
+
+    const { rows } = await pool.query('select count(*)::int as n from plans where user_id = $1', [
+      uid,
+    ]);
+    assert.equal(rows[0]!.n, 0);
+  });
+
+  it('cascades to the sessions those plans generated', async () => {
+    const { token, uid } = await signUp();
+    await seedPlanAndRace(uid);
+
+    const { rows: planRows } = await pool.query<{ id: string }>(
+      `select id from plans where user_id = $1 and status = 'current'`,
+      [uid],
+    );
+    const planId = planRows[0]!.id;
+
+    await pool.query(
+      `insert into sessions (user_id, plan_id, date, title, discipline)
+       values ($1, $2, '2026-09-10', 'Easy run', 'run')`,
+      [uid, planId],
+    );
+
+    await app.inject({ method: 'DELETE', url: '/v1/plans', headers: authed(token) });
+
+    const { rows } = await pool.query('select count(*)::int as n from sessions where user_id = $1', [
+      uid,
+    ]);
+    assert.equal(rows[0]!.n, 0);
+  });
+
+  it('leaves races and recorded activities alone, unlinking the activity from its session', async () => {
+    const { token, uid } = await signUp();
+    const raceId = await seedPlanAndRace(uid);
+
+    const { rows: planRows } = await pool.query<{ id: string }>(
+      `select id from plans where user_id = $1 and status = 'current'`,
+      [uid],
+    );
+    const planId = planRows[0]!.id;
+
+    const { rows: sessionRows } = await pool.query<{ id: string }>(
+      `insert into sessions (user_id, plan_id, date, title, discipline)
+       values ($1, $2, '2026-09-10', 'Easy run', 'run')
+       returning id`,
+      [uid, planId],
+    );
+    const sessionId = sessionRows[0]!.id;
+
+    await pool.query(
+      `insert into activities (user_id, session_id, started_at, title, discipline)
+       values ($1, $2, now(), 'Morning run', 'run')`,
+      [uid, sessionId],
+    );
+
+    await app.inject({ method: 'DELETE', url: '/v1/plans', headers: authed(token) });
+
+    const races = (
+      await app.inject({ method: 'GET', url: '/v1/races', headers: authed(token) })
+    ).json();
+    assert.deepEqual(
+      races.map((r: { id: string }) => r.id),
+      [raceId],
+    );
+
+    const { rows: activityRows } = await pool.query<{ session_id: string | null }>(
+      'select session_id from activities where user_id = $1',
+      [uid],
+    );
+    assert.equal(activityRows.length, 1);
+    assert.equal(activityRows[0]!.session_id, null);
+  });
+
+  it('requires authentication', async () => {
+    const response = await app.inject({ method: 'DELETE', url: '/v1/plans' });
+    assert.equal(response.statusCode, 401);
+  });
+
+  it("does not touch another athlete's plans", async () => {
+    const mine = await signUp('mine@example.com');
+    const theirs = await signUp('theirs@example.com');
+    await seedPlanAndRace(theirs.uid);
+
+    await app.inject({ method: 'DELETE', url: '/v1/plans', headers: authed(mine.token) });
+
+    const { rows } = await pool.query('select count(*)::int as n from plans where user_id = $1', [
+      theirs.uid,
+    ]);
+    assert.equal(rows[0]!.n, 3);
   });
 });
 

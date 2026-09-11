@@ -5,6 +5,7 @@
  */
 import {
   createUserWithEmailAndPassword,
+  deleteUser as firebaseDeleteUser,
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -61,6 +62,10 @@ function describe(code: string, error: unknown) {
       return 'Network unavailable. Check your connection and try again.';
     case 'auth/operation-not-allowed':
       return 'That sign-in method is disabled in the Firebase console.';
+    case 'auth/requires-recent-login':
+      return 'For your security, please sign out and back in, then try deleting your account again.';
+    case 'auth/no-current-user':
+      return 'You are not signed in.';
     default:
       return error instanceof Error ? error.message : 'Something went wrong.';
   }
@@ -85,4 +90,13 @@ export const firebaseAuthService: AuthService = {
 
 
   signOut: () => run(() => firebaseSignOut(getAuth())),
+
+  deleteAccount: () =>
+    run(() => {
+      const user = getAuth().currentUser;
+      if (!user) {
+        throw { code: 'auth/no-current-user' };
+      }
+      return firebaseDeleteUser(user);
+    }),
 };

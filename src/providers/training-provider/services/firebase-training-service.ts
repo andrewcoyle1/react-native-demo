@@ -13,6 +13,7 @@
 import {
   collection,
   doc,
+  getDocs,
   getFirestore,
   onSnapshot,
   orderBy,
@@ -20,6 +21,7 @@ import {
   serverTimestamp,
   setDoc,
   where,
+  writeBatch,
 } from '@react-native-firebase/firestore';
 
 import type {
@@ -220,5 +222,24 @@ export const firebaseTrainingService: TrainingService = {
       },
       { merge: true },
     );
+  },
+
+  /**
+   * Deletes every plan document. Firestore has no cascading delete, and the
+   * sessions those plans generated live in `SessionsProvider`'s own
+   * collection rather than this file's — this clears the plan collection
+   * only, which is enough to let a fresh plan be generated; any orphaned
+   * sessions are a known gap in this (legacy) implementation, not present in
+   * the API one, which the server's cascade handles properly.
+   */
+  async resetPlans(uid) {
+    const snapshot = await getDocs(plansCollection(uid));
+    if (snapshot.empty) {
+      return;
+    }
+
+    const batch = writeBatch(getFirestore());
+    snapshot.docs.forEach(document => batch.delete(document.ref));
+    await batch.commit();
   },
 };

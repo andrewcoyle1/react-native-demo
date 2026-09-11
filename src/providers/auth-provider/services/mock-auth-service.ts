@@ -73,4 +73,8 @@ export const mockAuthService: AuthService = {
   signOut() {
     return settle(() => setUser(null));
   },
+
+  deleteAccount() {
+    return settle(() => setUser(null));
+  },
 };

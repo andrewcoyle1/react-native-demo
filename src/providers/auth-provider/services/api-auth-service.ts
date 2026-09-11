@@ -13,7 +13,7 @@
 import { AuthError, type AuthService, type AuthUser } from './auth-service';
 
 import type { AuthUserDTO, SessionResponse } from '@/domain/wire.ts';
-import { readCache, writeCache } from '@/providers/shared/persistence';
+import { clearCache, readCache, writeCache } from '@/providers/shared/persistence';
 import { flushPendingWrites } from '@/providers/shared/pending-writes';
 import {
   ApiError,
@@ -210,5 +210,28 @@ export const apiAuthService: AuthService = {
       await discardSession();
       setUser(null);
     }
+  },
+
+  /**
+   * Deletes the account server-side, then wipes every local trace of it.
+   *
+   * Unlike `signOut`, a failure here must not clear anything locally: if the
+   * server could not be reached the account still exists, and dropping the
+   * session would leave the athlete looking signed out of an account that is
+   * still very much there. Only on success does the cleanup run — and then
+   * thoroughly, since nothing in `sync-cache` (including any still-queued
+   * write) should survive to be replayed against, or shown for, whoever signs
+   * in on this device next.
+   */
+  async deleteAccount() {
+    try {
+      await api.delete('/v1/auth/me');
+    } catch (error) {
+      throw describe(error);
+    }
+
+    await discardSession();
+    await clearCache();
+    setUser(null);
   },
 };
