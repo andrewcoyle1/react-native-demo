@@ -47,16 +47,16 @@ import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
 import { ChevronRightIcon, Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
-import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 
 /* The app's SF Symbol renderer. gluestack's icon set has no swim, bike or run
    glyph, and the disciplines are the one place this screen needs them. */
 import { Icon as SymbolIcon } from '@/components/icon';
+import { PlanChart } from '@/components/plan-chart';
 import { AltCarousel } from './carousel';
 import { AltScreenBackground } from './screen-background';
-import { AccentFillOpacity, Accents, BottomTabInset } from '@/constants/theme';
+import { AccentFillOpacity, Accents, BottomTabInset, Spacing } from '@/constants/theme';
 
 export type AltPlan = {
   id: string;
@@ -81,6 +81,18 @@ export type AltPlan = {
   lengthLabel: string;
   /** The plan's photograph, behind the card. Omit for a plain themed card. */
   artwork?: string;
+  /**
+   * Planned hours, one per week of the plan, with the week in progress marked.
+   *
+   * The shape of the whole block — where the big weeks are, which one you are
+   * in, how much of it is done. The card carried it in the standard build and
+   * carries it here: a single progress bar says how far through *this* week the
+   * athlete is and nothing about the twenty-three around it.
+   */
+  bars: number[];
+  currentBarIndex?: number;
+  currentBarProgress?: number;
+  currentBarLabel?: number;
 };
 
 export type AltSession = {
@@ -260,41 +272,39 @@ function PlanPage({ plan }: { plan: AltPlan }) {
         </Text>
       </VStack>
 
-      {plan.active && plan.progress !== null ? (
-        <VStack space="xs">
-          <HStack className="items-baseline justify-between gap-3">
-            <Text
-              size="sm"
-              className={`font-medium ${onImage ? 'text-on-scrim' : 'text-foreground'}`}>
-              {plan.weekLabel ?? 'This week'}
-            </Text>
-            {plan.hoursLabel ? (
-              <Text size="sm" className={onImage ? 'text-on-scrim-muted' : 'text-muted-foreground'}>
-                {plan.hoursLabel}
-              </Text>
-            ) : null}
-          </HStack>
-          {/* White on white-transparent over a photo: the accent blue is not
-              guaranteed to separate from arbitrary artwork, and a progress bar
-              that cannot be read is worse than one without a brand colour. */}
-          <Progress
-            value={Math.round(plan.progress * 100)}
-            className={onImage ? 'bg-on-scrim-track' : undefined}
-            accessibilityLabel={`${Math.round(plan.progress * 100)}% of this week complete`}>
-            <ProgressFilledTrack className={onImage ? 'bg-on-scrim' : undefined} />
-          </Progress>
-        </VStack>
-      ) : (
-        /* A plan that has not started has no progress to report, so the bottom
-           row carries what it does know instead of leaving a gap. */
-        <Text
-          size="sm"
-          className={onImage ? 'text-on-scrim-muted' : 'text-muted-foreground'}
-          numberOfLines={1}>
-          {plan.lengthLabel}
-          {plan.raceName ? ` · ${plan.raceName}` : ''}
-        </Text>
-      )}
+      <VStack space="xs">
+        <HStack className="items-baseline justify-between gap-3">
+          <Text
+            size="sm"
+            className={`font-medium ${onImage ? 'text-on-scrim' : 'text-foreground'}`}>
+            {plan.active ? (plan.weekLabel ?? 'This week') : plan.lengthLabel}
+          </Text>
+          <Text
+            size="sm"
+            className={onImage ? 'text-on-scrim-muted' : 'text-muted-foreground'}
+            numberOfLines={1}>
+            {plan.active ? plan.hoursLabel : plan.raceName}
+          </Text>
+        </HStack>
+
+        {/* The block's shape, not just this week's. `PlanChart` draws itself in
+            fixed light values for exactly this context — a card over artwork —
+            so it is reused rather than rebuilt: gluestack has no opinion about
+            a bar chart, and a second implementation would be a second thing to
+            keep agreeing with the standard card. */}
+        {plan.bars.length > 0 ? (
+          <PlanChart
+            bars={plan.bars}
+            currentIndex={plan.currentBarIndex}
+            currentProgress={plan.currentBarProgress}
+            currentLabelValue={plan.currentBarLabel}
+            height={60}
+            /* Negative insets cancel the card's padding so the bars run to its
+               edges, as they do on the standard card. */
+            style={{ marginHorizontal: -Spacing.four, marginBottom: -Spacing.two }}
+          />
+        ) : null}
+      </VStack>
     </Card>
   );
 }

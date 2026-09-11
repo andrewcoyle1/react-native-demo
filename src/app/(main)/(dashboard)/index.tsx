@@ -153,6 +153,17 @@ function DashboardBody() {
                   : null,
               lengthLabel: `${plan.weeks} weeks`,
               artwork: plan.artworkUrl ?? undefined,
+              /* The chart plots the plan's own planned hours; the label on the
+                 current bar reads what has actually been trained, which is the
+                 distinction `toPlanCardProps` documents. */
+              bars: plan.weeklyPlannedHours,
+              currentBarIndex: plan.currentWeekIndex ?? undefined,
+              currentBarProgress:
+                actual !== undefined && planned
+                  ? Math.min(actual / planned, 1)
+                  : (plan.currentWeekProgress ?? undefined),
+              currentBarLabel:
+                actual !== undefined ? Math.round(actual * 10) / 10 : undefined,
             };
           }),
           days: sections.map((section): AltDay => {

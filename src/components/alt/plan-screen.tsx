@@ -32,11 +32,11 @@ import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
 import { ChevronLeftIcon, ChevronRightIcon, Icon } from '@/components/ui/icon';
 import { Pressable } from '@/components/ui/pressable';
-import { Progress, ProgressFilledTrack } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 
 import { Icon as SymbolIcon } from '@/components/icon';
+import { ProgressRing } from '@/components/progress-ring';
 import { AccentFillOpacity, Accents, BottomTabInset } from '@/constants/theme';
 import { AltScreenBackground } from './screen-background';
 
@@ -201,7 +201,16 @@ function StepButton({
   );
 }
 
-/** The week's volume, one bar per discipline, over the three added together. */
+/**
+ * The week's volume, one ring per discipline, over the three added together.
+ *
+ * Rings rather than bars, and rather than anything gluestack ships: this is the
+ * figure the tab exists for, and the standard build draws it as an arc around
+ * the discipline's own symbol. A component library has no opinion about that
+ * shape, and `ProgressRing` already draws it in four views — so the alternate
+ * build reuses it rather than inventing a second way to say the same thing.
+ * The card, the labels and the total around it are gluestack.
+ */
 function Volumes({ model }: { model: AltPlanModel }) {
   if (model.volumes.length === 0) {
     return null;
@@ -210,36 +219,29 @@ function Volumes({ model }: { model: AltPlanModel }) {
   return (
     <Card size="sm">
       <VStack space="md">
-        {model.volumes.map(volume => (
-          <VStack key={volume.id} space="xs">
-            <HStack space="sm" className="items-center">
-              <Box
-                className="size-7 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${volume.accent}${AccentFillOpacity}` }}>
-                <SymbolIcon name={volume.icon} size={14} tintColor={volume.accent} />
-              </Box>
+        <HStack className="justify-around">
+          {model.volumes.map(volume => (
+            <VStack key={volume.id} space="xs" className="items-center">
+              <ProgressRing
+                progress={volume.progress}
+                color={volume.accent}
+                size={84}
+                stroke={7}>
+                <SymbolIcon name={volume.icon} size={30} tintColor={volume.accent} />
+              </ProgressRing>
 
-              <Text size="sm" className="flex-1 text-foreground font-medium">
-                {volume.done}
+              {/* Digits at full contrast, units quiet beside them — the same
+                  split the standard build makes, because the number is what is
+                  being read and the unit only qualifies it. */}
+              <Text size="sm" className="text-foreground font-semibold">
+                {withUnits(volume.done)}
               </Text>
-              <Text size="xs" className="text-muted-foreground">
-                of {volume.planned}
+              <Text size="2xs" className="text-muted-foreground uppercase tracking-wider">
+                {volume.planned}
               </Text>
-            </HStack>
-
-            {/* The bar carries the discipline's own colour, so the three read
-                as three sports rather than as three copies of one control.
-                The track goes neutral with it: the component's own
-                `bg-primary/20` is a blue wash, which fights an orange or pink
-                fill instead of receding behind it. */}
-            <Progress
-              className="bg-muted"
-              value={Math.round(Math.min(volume.progress, 1) * 100)}
-              accessibilityLabel={`${volume.done} of ${volume.planned}`}>
-              <ProgressFilledTrack style={{ backgroundColor: volume.accent }} />
-            </Progress>
-          </VStack>
-        ))}
+            </VStack>
+          ))}
+        </HStack>
 
         <Divider />
 
@@ -257,6 +259,29 @@ function Volumes({ model }: { model: AltPlanModel }) {
         </HStack>
       </VStack>
     </Card>
+  );
+}
+
+/**
+ * Renders "1 hr 57 min" with the digits at full contrast and the units quiet.
+ *
+ * Splitting on whitespace is enough: every token is either a number or the unit
+ * that follows it, and the unit is whatever is not a number. The same rule the
+ * standard build's `withUnits` follows.
+ */
+function withUnits(text: string) {
+  return text.split(' ').map((token, index) =>
+    /\d/.test(token) ? (
+      <Text key={index} size="sm" className="text-foreground font-semibold">
+        {index > 0 ? ' ' : ''}
+        {token}
+      </Text>
+    ) : (
+      <Text key={index} size="2xs" className="text-muted-foreground">
+        {' '}
+        {token.toUpperCase()}
+      </Text>
+    ),
   );
 }
 

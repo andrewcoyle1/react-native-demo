@@ -56,10 +56,9 @@ type AltCarouselProps = {
    * sitting at the top.
    *
    * The default is measured against the tallest page this screen has — label
-   * row, countdown, caption, week and bar — with enough slack that they are
-   * spaced rather than crammed, and not so much that the middle opens into a
-   * dead gap. Shorter than the standard build's 272 because these pages carry
-   * no artwork.
+   * row, countdown, caption, the week line and the plan chart under it — with
+   * enough slack that they are spaced rather than crammed, and not so much
+   * that the middle opens into a dead gap.
    */
   height?: number;
   /**
@@ -73,7 +72,7 @@ type AltCarouselProps = {
 
 export function AltCarousel({
   children,
-  height = 208,
+  height = 272,
   addPage,
   accessibilityLabel,
 }: AltCarouselProps) {
