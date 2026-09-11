@@ -47,6 +47,7 @@ import { VStack } from '@/components/ui/vstack';
    draws brand marks, and gluestack's set has no Instagram or Strava glyph to
    reach for. Aliased because `Icon` is already taken above. */
 import { Icon as SymbolIcon } from '@/components/icon';
+import { AltScreenBackground } from './screen-background';
 
 import { BottomTabInset } from '@/constants/theme';
 
@@ -96,97 +97,103 @@ export function AltProfileScreen({ model }: { model: AltProfileModel }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="px-4 pt-6 gap-6"
-      contentInsetAdjustmentBehavior="automatic">
-      <Hero model={model} />
+    /* The same ground the Dashboard stands on, so the alternate UI reads as one
+       surface rather than two tabs that happen to share components.
+       Transparent scroller over it: a `bg-background` here would paint straight
+       over the photograph and the dot grid. */
+    <AltScreenBackground>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-4 pt-6 gap-6"
+        contentInsetAdjustmentBehavior="automatic">
+        <Hero model={model} />
 
-      <Section title="Fitness metrics" rows={model.metrics} onNavigate={model.onNavigate} />
-      <Section title="Preferences" rows={model.preferences} onNavigate={model.onNavigate} />
-      <Section
-        title="Connected apps & devices"
-        rows={model.integrations}
-        onNavigate={model.onNavigate}
-      />
-      <Section
-        title="Manage subscription"
-        rows={model.subscription}
-        onNavigate={model.onNavigate}
-      />
-      <Section title="Notifications" rows={model.notifications} onNavigate={model.onNavigate} />
+        <Section title="Fitness metrics" rows={model.metrics} onNavigate={model.onNavigate} />
+        <Section title="Preferences" rows={model.preferences} onNavigate={model.onNavigate} />
+        <Section
+          title="Connected apps & devices"
+          rows={model.integrations}
+          onNavigate={model.onNavigate}
+        />
+        <Section
+          title="Manage subscription"
+          rows={model.subscription}
+          onNavigate={model.onNavigate}
+        />
+        <Section title="Notifications" rows={model.notifications} onNavigate={model.onNavigate} />
 
-      {/* The switch that got you here, and the only way back. Kept in both
-          builds and worded identically in both, so it is never ambiguous which
-          way the setting is pointing. */}
-      <VStack space="sm">
-        <SectionLabel>Appearance</SectionLabel>
-        <Card size="sm">
-          <HStack className="items-center justify-between gap-4">
-            <VStack className="flex-1">
-              <Text className="text-foreground font-medium">Alternate UI</Text>
-              <Text size="sm" className="text-muted-foreground">
-                Dashboard and Profile rebuilt on gluestack-ui
-              </Text>
-            </VStack>
-            <Switch value={model.alternateUi} onValueChange={model.onAlternateUiChange} />
-          </HStack>
-        </Card>
-      </VStack>
+        {/* The switch that got you here, and the only way back. Kept in both
+            builds and worded identically in both, so it is never ambiguous which
+            way the setting is pointing. */}
+        <VStack space="sm">
+          <SectionLabel>Appearance</SectionLabel>
+          <Card size="sm">
+            <HStack className="items-center justify-between gap-4">
+              <VStack className="flex-1">
+                <Text className="text-foreground font-medium">Alternate UI</Text>
+                <Text size="sm" className="text-muted-foreground">
+                  Dashboard and Profile rebuilt on gluestack-ui
+                </Text>
+              </VStack>
+              <Switch value={model.alternateUi} onValueChange={model.onAlternateUiChange} />
+            </HStack>
+          </Card>
+        </VStack>
 
-      <VStack space="sm">
-        <SectionLabel>Account</SectionLabel>
-        <Button
-          variant="outline"
-          onPress={model.signOutPending ? undefined : model.onSignOut}
-          isDisabled={model.signOutPending}>
-          <ButtonText>{model.signOutPending ? 'Signing out…' : 'Log Out'}</ButtonText>
-        </Button>
-        {model.error ? <ErrorText>{model.error}</ErrorText> : null}
-      </VStack>
+        <VStack space="sm">
+          <SectionLabel>Account</SectionLabel>
+          <Button
+            variant="outline"
+            onPress={model.signOutPending ? undefined : model.onSignOut}
+            isDisabled={model.signOutPending}>
+            <ButtonText>{model.signOutPending ? 'Signing out…' : 'Log Out'}</ButtonText>
+          </Button>
+          {model.error ? <ErrorText>{model.error}</ErrorText> : null}
+        </VStack>
 
-      <HStack className="justify-between">
-        {model.socials.map(social => (
-          <Pressable
-            key={social.id}
-            onPress={() => model.onOpen(social.url)}
-            accessibilityRole="link"
-            accessibilityLabel={social.label}
-            className="size-13 items-center justify-center rounded-xl"
-            /* Brand gradients, so not tokenised — see the header. There is no
-               spacing-scale step at 52, which is the size the standard build
-               draws these at; matching it is worth the one arbitrary value. */
-            style={{ experimental_backgroundImage: social.gradient }}>
-            <SymbolIcon name={social.icon} size={20} tintColor="#FFFFFF" />
+        <HStack className="justify-between">
+          {model.socials.map(social => (
+            <Pressable
+              key={social.id}
+              onPress={() => model.onOpen(social.url)}
+              accessibilityRole="link"
+              accessibilityLabel={social.label}
+              className="size-13 items-center justify-center rounded-xl"
+              /* Brand gradients, so not tokenised — see the header. There is no
+                 spacing-scale step at 52, which is the size the standard build
+                 draws these at; matching it is worth the one arbitrary value. */
+              style={{ experimental_backgroundImage: social.gradient }}>
+              <SymbolIcon name={social.icon} size={20} tintColor="#FFFFFF" />
+            </Pressable>
+          ))}
+        </HStack>
+
+        <VStack space="sm" className="items-center">
+          <Pressable onPress={() => model.onOpen('https://example.com/terms')}>
+            <Text className="text-primary">Terms &amp; Conditions</Text>
           </Pressable>
-        ))}
-      </HStack>
+          <Pressable onPress={() => model.onOpen('https://example.com/privacy')}>
+            <Text className="text-primary">Privacy Policy</Text>
+          </Pressable>
+          <Text size="2xs" className="text-muted-foreground tracking-widest">
+            STAMINA TECHNOLOGIES LIMITED
+          </Text>
+          <Text size="2xs" className="text-muted-foreground">
+            v{model.version}
+          </Text>
+        </VStack>
 
-      <VStack space="sm" className="items-center">
-        <Pressable onPress={() => model.onOpen('https://example.com/terms')}>
-          <Text className="text-primary">Terms &amp; Conditions</Text>
-        </Pressable>
-        <Pressable onPress={() => model.onOpen('https://example.com/privacy')}>
-          <Text className="text-primary">Privacy Policy</Text>
-        </Pressable>
-        <Text size="2xs" className="text-muted-foreground tracking-widest">
-          STAMINA TECHNOLOGIES LIMITED
-        </Text>
-        <Text size="2xs" className="text-muted-foreground">
-          v{model.version}
-        </Text>
-      </VStack>
+        <Danger danger={model.danger} />
 
-      <Danger danger={model.danger} />
-
-      {/* The tab bar floats over the scroller, so the last card needs room to
-          clear it. A spacer rather than a `contentContainerStyle` alongside the
-          `contentContainerClassName` above: NativeWind maps the className onto
-          that same prop, and one mechanism per prop leaves nothing to reason
-          about. `BottomTabInset` is the constant the standard build's
-          `useScreenPadding` uses, not a second guess at the same gap. */}
-      <View style={{ height: insets.bottom + BottomTabInset }} />
-    </ScrollView>
+        {/* The tab bar floats over the scroller, so the last card needs room to
+            clear it. A spacer rather than a `contentContainerStyle` alongside the
+            `contentContainerClassName` above: NativeWind maps the className onto
+            that same prop, and one mechanism per prop leaves nothing to reason
+            about. `BottomTabInset` is the constant the standard build's
+            `useScreenPadding` uses, not a second guess at the same gap. */}
+        <View style={{ height: insets.bottom + BottomTabInset }} />
+      </ScrollView>
+    </AltScreenBackground>
   );
 }
 
