@@ -32,6 +32,7 @@ const MaterialEquivalent: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'house': 'home',
   'house.fill': 'home',
   'calendar': 'calendar_month',
+  'calendar.badge.plus': 'calendar_add_on',
   'flame': 'local_fire_department',
   'flame.fill': 'local_fire_department',
   'chart.line.uptrend.xyaxis': 'trending_up',
