@@ -1,13 +1,16 @@
 /**
  * "Your plan overview" — the flow's last screen: a summary of everything
- * collected, and the button that would kick off plan generation.
+ * collected, and the button that creates the profile.
  *
- * Plan generation is an open product question (see the data-layer plan doc),
- * and the server has no endpoint to receive these answers yet, so
- * "Personalise my plan" calls the provider's `submit()` stub and returns to
- * the signed-in app rather than actually producing a plan.
+ * Plan generation itself is an open product question (see the data-layer plan
+ * doc), and the server has no endpoint to receive a full set of onboarding
+ * answers yet — but a profile is real and already has one: `POST /v1/profile`.
+ * "Personalise my plan" creates it from the name, date of birth and gender
+ * collected earlier in the flow, which is what actually ends onboarding —
+ * `UserProvider`'s `absent` -> `ready` flip is what the root gate is waiting
+ * on. Everything else this screen collected has nowhere to go yet and is
+ * simply not sent.
  */
-import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
@@ -18,11 +21,16 @@ import { RaceCatalog } from '@/constants/race-catalog';
 import { formatPace } from '@/domain/format';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useTheme } from '@/hooks/use-theme';
-import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
+import { useOnboardingFlow, type Gender } from '@/providers/onboarding-flow-provider';
+import { useUser, type UserSex } from '@/providers/user-provider';
+import { reportError } from '@/services/telemetry';
 
 import { stepProgress } from './flow-order';
 
 const PLAN_ARTWORK = 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800';
+
+/** What `personal-details.tsx` shows when nothing has been picked yet. */
+const DEFAULT_DOB = { day: 1, month: 2, year: 95 };
 
 function ageFrom(dob: { day: number; month: number; year: number } | null): number | null {
   if (!dob) return null;
@@ -35,20 +43,50 @@ function ageFrom(dob: { day: number; month: number; year: number } | null): numb
   return age;
 }
 
+/** The wheel picker's two-digit year is 19xx for anything not implausibly old. */
+function dateFrom(dob: { day: number; month: number; year: number }): Date {
+  const fullYear = dob.year < 100 ? 1900 + dob.year : dob.year;
+  return new Date(fullYear, dob.month - 1, dob.day);
+}
+
+/** The flow's three-way gender maps onto the profile's `UserSex` two-for-one:
+    there is no "prefer not to say" there yet, so it folds into `other`. */
+function sexFrom(gender: Gender): UserSex {
+  return gender === 'male' || gender === 'female' ? gender : 'other';
+}
+
 export default function PlanOverviewScreen() {
   useScreenTracking('Plan overview');
   const theme = useTheme();
   const { answers, submit } = useOnboardingFlow();
+  const { create } = useUser();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const race = answers.raceId ? RaceCatalog.find(r => r.id === answers.raceId) : null;
   const age = ageFrom(answers.dateOfBirth);
 
   async function finish() {
     setBusy(true);
-    await submit();
-    setBusy(false);
-    router.replace('/');
+    setError(null);
+    try {
+      await create({
+        name: answers.name.trim(),
+        dateOfBirth: dateFrom(answers.dateOfBirth ?? DEFAULT_DOB),
+        sex: sexFrom(answers.gender),
+      });
+      // The rest of what this screen collected has nowhere to go yet — see
+      // the file header — but `submit()` stays the one seam that would send
+      // it, so nothing here needs to change when it does.
+      await submit();
+      // No navigation needed: the profile flipping from `absent` to `ready`
+      // flips the root gate, exactly as signing in flips it off `(onboarding)`.
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Something went wrong. Please try again.');
+      reportError(caught, 'onboarding: create profile');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -103,6 +141,12 @@ export default function PlanOverviewScreen() {
         <SummaryRow label="Swim threshold pace" value={`${formatPace(answers.swimPaceSecondsPer100m)}/100m`} />
         <SummaryRow label="Current training volume" value={answers.weeklyHoursBand ?? '—'} />
       </View>
+
+      {error ? (
+        <ThemedText type="small" style={styles.error} accessibilityRole="alert">
+          {error}
+        </ThemedText>
+      ) : null}
     </OnboardingStep>
   );
 }
@@ -133,6 +177,11 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  error: {
+    marginTop: 16,
+    textAlign: 'center',
+    color: '#E5484D',
+  },
   planCard: {
     borderWidth: 1,
     borderRadius: 20,

@@ -9,7 +9,7 @@
  * is the one thing particular to profiles — that a document which does not exist
  * is `absent` rather than an error, and is never written on the athlete's behalf.
  */
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { firebaseUserService } from './services/firebase-user-service';
@@ -37,27 +37,43 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
   const { user } = useAuth();
   const uid = user?.uid ?? null;
 
+  /*
+   * Bumped after `create`/`update` so the subscription key changes and
+   * `useRemoteSubscription` restarts its effect. `apiUserService.subscribe` is
+   * a one-shot fetch (see `docs/streaming.md`; there is no live profile stream
+   * yet), so nothing else re-reads it — and the root gate depends on `absent`
+   * flipping to `ready` the moment onboarding finishes, not on the athlete's
+   * next cold start.
+   */
+  const [profileEpoch, setProfileEpoch] = useState(0);
+  const key = uid ? `${uid}:${profileEpoch}` : null;
+
   // Memoised so the subscription survives a re-render: `useRemoteSubscription`
   // treats this as a real dependency.
   const subscribe = useCallback<Subscribe<UserModel | null>>(
-    (key, onData, onError) =>
-      service.subscribe(
-        key,
+    (subscribeKey, onData, onError) => {
+      const subscribeUid = subscribeKey.split(':')[0]!;
+      return service.subscribe(
+        subscribeUid,
         profile => {
-          breadcrumb(profile ? `user: profile ready (${key})` : `user: profile absent (${key})`);
+          breadcrumb(
+            profile ? `user: profile ready (${subscribeUid})` : `user: profile absent (${subscribeUid})`,
+          );
           onData(profile);
         },
         onError,
-      ),
+      );
+    },
     [service],
   );
 
-  const remote = useRemoteSubscription(uid, subscribe, 'user: subscription');
+  const remote = useRemoteSubscription(key, subscribe, 'user: subscription');
 
   const create = useCallback(
     async (draft: UserDraft) => {
       if (uid) {
         await service.create(uid, draft);
+        setProfileEpoch(epoch => epoch + 1);
       }
     },
     [uid, service],
@@ -67,6 +83,7 @@ export function UserProvider({ children, service = firebaseUserService }: UserPr
     async (changes: Partial<UserDraft>) => {
       if (uid) {
         await service.update(uid, changes);
+        setProfileEpoch(epoch => epoch + 1);
       }
     },
     [uid, service],
