@@ -56,7 +56,7 @@ export default function FitnessPaceScreen() {
       subtitle="We'll use this to calculate your training zones and intensity"
       progress={stepProgress('fitness-pace', answers.hasRace)}
       onNext={() => router.push('/training-hours')}>
-      <FieldCaption>Run Threshold Pace</FieldCaption>
+      <FieldCaption style={styles.caption}>Run Threshold Pace</FieldCaption>
       <ThemedText themeColor="textSecondary" style={styles.note}>
         ⓘ The fastest avg. pace you can hold for ~60 minutes
       </ThemedText>
@@ -72,7 +72,7 @@ export default function FitnessPaceScreen() {
       />
 
       <View style={styles.section}>
-        <FieldCaption>Swim Threshold Pace</FieldCaption>
+        <FieldCaption style={styles.caption}>Swim Threshold Pace</FieldCaption>
         <ThemedText themeColor="textSecondary" style={styles.note}>
           ⓘ The fastest avg. pace you can hold for ~30 minutes
         </ThemedText>
@@ -92,6 +92,10 @@ export default function FitnessPaceScreen() {
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   note: {
     fontSize: 13,
     lineHeight: 19,
@@ -99,6 +103,7 @@ const styles = StyleSheet.create({
   },
   paceRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
     marginBottom: 16,

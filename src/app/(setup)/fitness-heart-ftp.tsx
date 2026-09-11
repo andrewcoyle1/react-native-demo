@@ -25,7 +25,7 @@ export default function FitnessHeartFtpScreen() {
       subtitle="We'll use this to calculate your training zones and intensity"
       progress={stepProgress('fitness-heart-ftp', answers.hasRace)}
       onNext={() => router.push('/fitness-pace')}>
-      <FieldCaption>Heart Rate Range</FieldCaption>
+      <FieldCaption style={styles.caption}>Heart Rate Range</FieldCaption>
       <View style={styles.hrRow}>
         <View style={styles.hrColumn}>
           <ThemedText themeColor="textSecondary" style={styles.hrHeader}>
@@ -69,7 +69,7 @@ export default function FitnessHeartFtpScreen() {
       </View>
 
       <View style={styles.section}>
-        <FieldCaption>Cycling Threshold Power (FTP)</FieldCaption>
+        <FieldCaption style={styles.caption}>Cycling Threshold Power (FTP)</FieldCaption>
         <ThemedText themeColor="textSecondary" style={styles.note}>
           ⓘ The highest avg. power you can sustain for ~60 minutes
         </ThemedText>
@@ -94,8 +94,13 @@ function announceMax(max: number) {
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   hrRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
   },
@@ -129,6 +134,7 @@ const styles = StyleSheet.create({
   },
   ftpRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,

@@ -1,19 +1,21 @@
 /**
- * Name, date of birth, gender — the design's own three date-of-birth wheels
+ * Name and date of birth — the design's own three date-of-birth wheels
  * (day / month / year) share `WheelPicker`, the month column formatted to
  * its three-letter name instead of a number.
+ *
+ * Gender is asked once, on `body-metrics`, not here — the design's own two
+ * screens both carried the question, which meant answering it twice.
  */
 import { router } from 'expo-router';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { OnboardingStep } from '@/components/onboarding-step';
 import { AuthTextField } from '@/components/auth-field';
+import { OnboardingStep } from '@/components/onboarding-step';
 import { FieldCaption } from '@/components/onboarding/field-caption';
 import { WheelPicker } from '@/components/onboarding/wheel-picker';
 import { ThemedText } from '@/components/themed-text';
-import { useTheme } from '@/hooks/use-theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
-import { useOnboardingFlow, type Gender } from '@/providers/onboarding-flow-provider';
+import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 
 import { stepProgress } from './flow-order';
 
@@ -29,19 +31,12 @@ const MIN_BIRTH_YEAR = CURRENT_YEAR - 100;
 
 export default function PersonalDetailsScreen() {
   useScreenTracking('Personal details');
-  const theme = useTheme();
   const { answers, update } = useOnboardingFlow();
   const dob = answers.dateOfBirth ?? { day: 1, month: 2, year: CURRENT_YEAR - 30 };
 
   function setDob(patch: Partial<typeof dob>) {
     update({ dateOfBirth: { ...dob, ...patch } });
   }
-
-  const genders: { value: Gender; label: string }[] = [
-    { value: 'male', label: 'Male' },
-    { value: 'female', label: 'Female' },
-    { value: 'unspecified', label: 'Prefer not to say' },
-  ];
 
   return (
     <OnboardingStep
@@ -95,28 +90,6 @@ export default function PersonalDetailsScreen() {
           </View>
         </View>
       </View>
-
-      <View style={styles.section}>
-        <FieldCaption style={styles.caption}>Gender</FieldCaption>
-        <View style={styles.genderRow}>
-          {genders.map(gender => {
-            const active = answers.gender === gender.value;
-            return (
-              <Pressable
-                key={gender.value}
-                onPress={() => update({ gender: gender.value })}
-                style={[
-                  styles.genderChip,
-                  { borderColor: active ? theme.text : theme.backgroundSelected, backgroundColor: active ? theme.backgroundElement : 'transparent' },
-                ]}>
-                <ThemedText style={styles.genderLabel} numberOfLines={1}>
-                  {gender.label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
     </OnboardingStep>
   );
 }
@@ -141,25 +114,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     marginBottom: 4,
-  },
-  genderRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  genderChip: {
-    height: 54,
-    minWidth: 130,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  genderLabel: {
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '500',
   },
 });

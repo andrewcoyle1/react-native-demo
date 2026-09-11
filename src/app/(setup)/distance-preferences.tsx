@@ -105,7 +105,7 @@ export default function DistancePreferencesScreen() {
       </View>
 
       <View style={styles.section}>
-        <FieldCaption>Pool Size</FieldCaption>
+        <FieldCaption style={styles.caption}>Pool Size</FieldCaption>
         <View style={[styles.poolRow, { borderColor: theme.backgroundSelected }]}>
           {PoolSizes.map(size => {
             const active = answers.poolSize === size;
@@ -128,8 +128,13 @@ export default function DistancePreferencesScreen() {
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   captionRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
   },

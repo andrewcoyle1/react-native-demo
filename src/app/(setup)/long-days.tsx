@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
   },
   captionRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     marginBottom: -2,

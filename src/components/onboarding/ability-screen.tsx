@@ -60,7 +60,7 @@ export function AbilityScreen({
     <OnboardingStep title={title} progress={progress} onNext={onNext}>
       {sessionChips ? (
         <>
-          <FieldCaption>Usual swim session distance</FieldCaption>
+          <FieldCaption style={styles.caption}>Usual swim session distance</FieldCaption>
           <ThemedText themeColor="textSecondary" style={styles.prompt}>
             How far do you typically swim in a training session?
           </ThemedText>
@@ -91,7 +91,7 @@ export function AbilityScreen({
         </>
       ) : (
         <>
-          <FieldCaption>{`${info.label} experience`}</FieldCaption>
+          <FieldCaption style={styles.caption}>{`${info.label} experience`}</FieldCaption>
           <SegmentedControl
             value={answer.experience}
             onChange={experience => onChange({ ...answer, experience })}
@@ -106,7 +106,7 @@ export function AbilityScreen({
         </>
       )}
 
-      <FieldCaption>{`${info.label} distance`}</FieldCaption>
+      <FieldCaption style={styles.caption}>{`${info.label} distance`}</FieldCaption>
       <ThemedText themeColor="textSecondary" style={styles.prompt}>
         {distancePrompt}
       </ThemedText>
@@ -136,10 +136,15 @@ export function AbilityScreen({
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   prompt: {
     fontSize: 14,
     lineHeight: 19,
     marginBottom: 14,
+    textAlign: 'center',
   },
   chipGrid: {
     flexDirection: 'row',
