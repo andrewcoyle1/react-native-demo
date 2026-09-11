@@ -13,10 +13,15 @@
  * (a few dozen to a few hundred items) is cheap to render in full, and a
  * `FlatList` nested inside `OnboardingStep`'s own `ScrollView` trips React
  * Native's "VirtualizedLists should never be nested" warning. `snapToInterval`
- * stops exactly on a value; `onMomentumScrollEnd` reads back which one landed
- * centre.
+ * stops exactly on a value.
+ *
+ * Reading the landed value takes *both* scroll-end events, which is the whole
+ * subtlety here. `onMomentumScrollEnd` fires only when the release had enough
+ * velocity to coast; turn the wheel slowly and let go and no momentum follows,
+ * so listening to that alone means a gentle drag commits nothing and the wheel
+ * springs back to where it started. `onScrollEndDrag` covers exactly that case.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -62,22 +67,71 @@ export function WheelPicker({
 
   const index = Math.max(0, Math.round((value - min) / step));
 
-  function handleMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+  const scroller = useRef<ScrollView>(null);
+  /*
+   * The last index this wheel itself settled on.
+   *
+   * It is what tells an incoming `value` apart from one this wheel just
+   * reported. Without it the effect below would fight the user: every turn
+   * reports a value, the parent re-renders with it, and the effect would scroll
+   * the wheel back to where it already is mid-gesture.
+   */
+  const settled = useRef(index);
+
+  useEffect(() => {
+    if (index === settled.current) {
+      return;
+    }
+
+    // Changed from outside — a Clear button, or the other half of a bounded
+    // pair shifting this one's range. Move to match; `contentOffset` only ever
+    // sets the starting position, so it cannot do this.
+    settled.current = index;
+    scroller.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+  }, [index]);
+
+  function commit(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const rounded = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
     const clamped = Math.max(0, Math.min(values.length - 1, rounded));
     const picked = values[clamped];
-    if (picked !== undefined && picked !== value) onChange(picked);
+
+    if (picked === undefined || picked === value) {
+      return;
+    }
+
+    settled.current = clamped;
+    onChange(picked);
+  }
+
+  /**
+   * Commits only when the release will not coast.
+   *
+   * A flick still belongs to `onMomentumScrollEnd`, which sees where it
+   * actually stopped; committing here as well would report the value under the
+   * finger and then correct it a moment later. Android does not report
+   * `velocity` at all, so an absent reading is treated as a standstill — which
+   * is right, because there `onScrollEndDrag` is the only one of the two that
+   * is guaranteed to arrive.
+   */
+  function handleDragEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const velocity = event.nativeEvent.velocity?.y;
+
+    if (velocity === undefined || Math.abs(velocity) < 0.1) {
+      commit(event);
+    }
   }
 
   return (
     <View style={[styles.wrap, { width, height: ITEM_HEIGHT * (1 + 2 * VISIBLE_NEIGHBOURS) }]}>
       <ScrollView
+        ref={scroller}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         contentOffset={{ x: 0, y: index * ITEM_HEIGHT }}
         contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * VISIBLE_NEIGHBOURS }}
-        onMomentumScrollEnd={handleMomentumEnd}>
+        onScrollEndDrag={handleDragEnd}
+        onMomentumScrollEnd={commit}>
         {values.map((item, i) => {
           const isCentre = i === index;
           return (
