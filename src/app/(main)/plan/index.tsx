@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -272,7 +272,7 @@ function PlanWeekView({
               { borderColor: theme.backgroundSelected },
               pressed && styles.pressed,
             ]}>
-            <SymbolView name="pencil" size={15} tintColor={theme.text} />
+            <Icon name="pencil" size={15} tintColor={theme.text} />
             <ThemedText style={styles.editPlanText}>Edit plan</ThemedText>
           </Pressable>
         </View>
@@ -290,12 +290,12 @@ function PlanWeekView({
               onPress={() => commit(-1)}
               hitSlop={Spacing.two}
               style={({ pressed }) => [!canGoBack && styles.arrowDisabled, pressed && styles.pressed]}>
-              <SymbolView name="chevron.left" size={22} tintColor={theme.textSecondary} />
+              <Icon name="chevron.left" size={22} tintColor={theme.textSecondary} />
             </Pressable>
 
             <View style={styles.weekBlock}>
               <View style={styles.weekMeta}>
-                <SymbolView name="clock" size={14} tintColor={Accents.info} />
+                <Icon name="clock" size={14} tintColor={Accents.info} />
                 <ThemedText style={[styles.metaText, { color: Accents.info }]}>
                   {currentPlan ? `${currentPlan.name.split(' ')[0].toUpperCase()} plan` : ''}
                 </ThemedText>
@@ -310,7 +310,7 @@ function PlanWeekView({
               </ThemedText>
 
               <View style={styles.weekMeta}>
-                <SymbolView name="chart.line.uptrend.xyaxis" size={14} tintColor={Zones.hard} />
+                <Icon name="chart.line.uptrend.xyaxis" size={14} tintColor={Zones.hard} />
                 <ThemedText style={[styles.metaText, { color: Zones.hard }]}>
                   {currentPlan?.phase ? `${currentPlan.phase.split(' ')[0].toUpperCase()} phase` : ''}
                 </ThemedText>
@@ -328,7 +328,7 @@ function PlanWeekView({
                 !canGoForward && styles.arrowDisabled,
                 pressed && styles.pressed,
               ]}>
-              <SymbolView name="chevron.right" size={22} tintColor={theme.textSecondary} />
+              <Icon name="chevron.right" size={22} tintColor={theme.textSecondary} />
             </Pressable>
           </View>
 
@@ -343,7 +343,7 @@ function PlanWeekView({
                     color={discipline.accent}
                     size={84}
                     stroke={7}>
-                    <SymbolView name={discipline.icon} size={30} tintColor={discipline.accent} />
+                    <Icon name={discipline.icon} size={30} tintColor={discipline.accent} />
                   </ProgressRing>
 
                   <ThemedText style={styles.ringLine}>{withUnits(discipline.done)}</ThemedText>
@@ -355,7 +355,7 @@ function PlanWeekView({
             </View>
 
             <View style={[styles.total, { borderTopColor: theme.backgroundSelected }]}>
-              <SymbolView name="clock" size={16} tintColor={Accents.recovery} />
+              <Icon name="clock" size={16} tintColor={Accents.recovery} />
               <ThemedText themeColor="textSecondary" style={styles.totalText}>
                 TOTAL: {total.done.toUpperCase()} / {total.planned.toUpperCase()}
               </ThemedText>
@@ -363,7 +363,7 @@ function PlanWeekView({
                 accessibilityRole="button"
                 accessibilityLabel="Swap units"
                 hitSlop={Spacing.two}>
-                <SymbolView
+                <Icon
                   name="arrow.left.arrow.right"
                   size={16}
                   tintColor={theme.textSecondary}
@@ -409,7 +409,7 @@ function PlanRow({ item }: { item: PlannedItemProps }) {
       type="backgroundElement"
       style={[styles.row, { borderColor: theme.backgroundSelected }]}>
       <View style={styles.rowHeader}>
-        <SymbolView name={item.icon} size={22} tintColor={item.accent} style={styles.rowIcon} />
+        <Icon name={item.icon} size={22} tintColor={item.accent} style={styles.rowIcon} />
         <ThemedText style={styles.rowTitle}>{item.title}</ThemedText>
       </View>
 
@@ -420,7 +420,7 @@ function PlanRow({ item }: { item: PlannedItemProps }) {
 
         {item.commitment ? (
           <View style={styles.commitment}>
-            <SymbolView
+            <Icon
               name="arrow.triangle.2.circlepath"
               size={14}
               tintColor={Accents.commitment}
@@ -456,7 +456,7 @@ function PlanRow({ item }: { item: PlannedItemProps }) {
               styles.status,
               { backgroundColor: item.status === 'done' ? Accents.endurance : Accents.speed },
             ]}>
-            <SymbolView
+            <Icon
               name={item.status === 'done' ? 'checkmark' : 'xmark'}
               size={13}
               tintColor="#FFFFFF"

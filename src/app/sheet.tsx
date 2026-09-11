@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image, type ImageProps } from 'expo-image';
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -85,7 +85,7 @@ export default function SheetScreen() {
 
         {RELEASE.notes.map(note => (
           <View key={note.title} style={styles.note}>
-            <SymbolView name={note.icon} size={20} tintColor={note.accent} style={styles.noteIcon} />
+            <Icon name={note.icon} size={20} tintColor={note.accent} style={styles.noteIcon} />
 
             <View style={styles.noteBody}>
               <ThemedText style={styles.noteTitle}>{note.title}</ThemedText>

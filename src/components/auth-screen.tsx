@@ -8,7 +8,7 @@
  * phone instead of pushing the footer off the bottom.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
@@ -53,7 +53,7 @@ export function AuthScreen({ title, children, footer }: AuthScreenProps) {
           accessibilityLabel="Back"
           hitSlop={16}
           style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
-          <SymbolView name="arrow.left" size={22} weight="regular" tintColor={theme.text} />
+          <Icon name="arrow.left" size={22} weight="regular" tintColor={theme.text} />
         </Pressable>
 
         <ThemedText style={styles.title}>{title}</ThemedText>

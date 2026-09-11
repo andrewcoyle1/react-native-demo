@@ -4,7 +4,7 @@
  * Selection is carried by colour and fill together rather than by fill alone, so
  * it still reads for someone who cannot separate the accent from the neutral.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet } from 'react-native';
 
@@ -45,7 +45,7 @@ export function ChoiceChip({ label, icon, accent, selected, onPress }: ChoiceChi
         },
         pressed && styles.pressed,
       ]}>
-      <SymbolView name={icon} size={15} tintColor={color} />
+      <Icon name={icon} size={15} tintColor={color} />
       {/* The longest label sets the row's fit; truncating rather than wrapping
           keeps every capsule the same height on a narrow screen. */}
       <ThemedText numberOfLines={1} style={[styles.label, { color }]}>

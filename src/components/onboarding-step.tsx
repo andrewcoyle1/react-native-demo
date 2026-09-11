@@ -15,7 +15,7 @@
  * this flow is a sequence of steps rather than a single destination.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,7 +72,7 @@ export function OnboardingStep({
             accessibilityLabel="Back"
             hitSlop={16}
             style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
-            <SymbolView name="chevron.left" size={24} weight="regular" tintColor={theme.text} />
+            <Icon name="chevron.left" size={24} weight="regular" tintColor={theme.text} />
           </Pressable>
 
           {/* Centred independently of the back button, not flex-filling the

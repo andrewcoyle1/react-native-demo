@@ -4,7 +4,7 @@
  * Outlined like `ActionRow` rather than filled, so it closes the list without
  * looking like one more workout.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -45,7 +45,7 @@ export function PromptCard({ title, body, icon, accent, onPress }: PromptCardPro
       {/* Decorative: the whole card is the button, so the circle is not a second
           target and carries no label of its own. */}
       <View style={[styles.button, { backgroundColor: `${accent}${AccentFillOpacity}` }]}>
-        <SymbolView name={icon} size={22} tintColor={accent} />
+        <Icon name={icon} size={22} tintColor={accent} />
       </View>
     </Pressable>
   );

@@ -5,7 +5,7 @@
  * note is worth opening. Expanding is local state — the note is a detail of this
  * card, and nothing above it needs to know.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -52,7 +52,7 @@ export function CoachNote({ coach, note }: CoachNoteProps) {
 
         {/* Rotated rather than swapped for a `chevron.up`, so the two states are
             the same glyph and cannot drift apart. */}
-        <SymbolView
+        <Icon
           name="chevron.down"
           size={16}
           tintColor={theme.textSecondary}

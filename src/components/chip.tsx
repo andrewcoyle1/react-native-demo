@@ -5,7 +5,7 @@
  * of them. Omit it for the neutral variant — the plain descriptor ("EASY RIDE")
  * that sits beside a coloured purpose chip and should not compete with it.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
@@ -33,7 +33,7 @@ export function Chip({ label, accent, icon }: ChipProps) {
 
   return (
     <View style={[styles.chip, { borderColor, backgroundColor }]}>
-      {icon ? <SymbolView name={icon} size={12} tintColor={color} /> : null}
+      {icon ? <Icon name={icon} size={12} tintColor={color} /> : null}
       <ThemedText style={[styles.label, { color }]}>{label.toUpperCase()}</ThemedText>
     </View>
   );

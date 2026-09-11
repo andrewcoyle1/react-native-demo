@@ -1,4 +1,4 @@
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
@@ -75,7 +75,7 @@ export default function ActivitiesScreen() {
           <View style={styles.rangeRow}>
             <ThemedText style={styles.range}>{section.meta.range}</ThemedText>
             <View style={styles.rangeMeta}>
-              <SymbolView name="clock" size={15} tintColor={Accents.info} />
+              <Icon name="clock" size={15} tintColor={Accents.info} />
               <ThemedText themeColor="textSecondary" style={styles.rangeMetaText}>
                 {section.meta.plan}
               </ThemedText>
@@ -100,7 +100,7 @@ export default function ActivitiesScreen() {
                 accessibilityLabel="Search activities"
                 returnKeyType="search"
               />
-              <SymbolView name="magnifyingglass" size={20} tintColor={theme.textSecondary} />
+              <Icon name="magnifyingglass" size={20} tintColor={theme.textSecondary} />
             </View>
 
             <Pressable
@@ -108,7 +108,7 @@ export default function ActivitiesScreen() {
               accessibilityLabel="List options"
               hitSlop={Spacing.two}
               style={({ pressed }) => pressed && styles.pressed}>
-              <SymbolView name="ellipsis" size={18} tintColor={theme.text} />
+              <Icon name="ellipsis" size={18} tintColor={theme.text} />
             </Pressable>
           </View>
         </View>
@@ -179,13 +179,13 @@ function ActivityRow({ activity }: { activity: ActivityRowProps }) {
 
           <View style={styles.marks}>
             {activity.marks.map(mark => (
-              <SymbolView key={mark.icon} name={mark.icon} size={14} tintColor={mark.accent} />
+              <Icon key={mark.icon} name={mark.icon} size={14} tintColor={mark.accent} />
             ))}
           </View>
         </View>
 
         <View style={styles.titleRow}>
-          <SymbolView name={activity.icon} size={20} tintColor={activity.accent} />
+          <Icon name={activity.icon} size={20} tintColor={activity.accent} />
           <ThemedText style={styles.title} numberOfLines={1}>
             {activity.title}
           </ThemedText>
@@ -193,7 +193,7 @@ function ActivityRow({ activity }: { activity: ActivityRowProps }) {
 
         {activity.place ? (
           <View style={styles.placeRow}>
-            <SymbolView name="mappin.and.ellipse" size={13} tintColor={theme.textSecondary} />
+            <Icon name="mappin.and.ellipse" size={13} tintColor={theme.textSecondary} />
             <ThemedText themeColor="textSecondary" style={styles.place}>
               {activity.place.toUpperCase()}
             </ThemedText>
@@ -203,7 +203,7 @@ function ActivityRow({ activity }: { activity: ActivityRowProps }) {
         <View style={styles.stats}>
           {activity.stats.map(stat => (
             <View key={stat.icon + stat.value} style={styles.stat}>
-              <SymbolView name={stat.icon} size={15} tintColor={stat.accent} />
+              <Icon name={stat.icon} size={15} tintColor={stat.accent} />
               <ThemedText style={styles.statValue}>
                 {stat.value}
                 {stat.unit ? (

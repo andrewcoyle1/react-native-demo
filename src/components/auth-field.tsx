@@ -6,7 +6,7 @@
  * had, because these screens are built from the same two greys as everything
  * else.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
@@ -48,7 +48,7 @@ export function AuthTextField({ secure = false, ...input }: AuthTextFieldProps) 
           accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
           hitSlop={12}
           style={({ pressed }) => pressed && styles.pressed}>
-          <SymbolView
+          <Icon
             name={revealed ? 'eye.slash' : 'eye'}
             size={20}
             weight="light"

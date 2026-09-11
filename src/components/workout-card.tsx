@@ -6,7 +6,7 @@
  * same component covers a full interval session and a bare commitment with
  * nothing but a title and one chip.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -76,7 +76,7 @@ export function WorkoutCard({
       <View style={styles.header}>
         {/* The symbol sits inside the text flow so it stays on the title's first
             line as the title wraps, rather than centring against the whole block. */}
-        <SymbolView name={icon} size={26} tintColor={iconAccent} style={styles.disciplineIcon} />
+        <Icon name={icon} size={26} tintColor={iconAccent} style={styles.disciplineIcon} />
 
         <View style={styles.titleBlock}>
           <ThemedText style={styles.title}>
@@ -99,7 +99,7 @@ export function WorkoutCard({
                this size would otherwise be well under the 44pt minimum. */
             hitSlop={Spacing.two}
             style={({ pressed }) => pressed && styles.pressed}>
-            <SymbolView name="ellipsis" size={18} tintColor={theme.textSecondary} />
+            <Icon name="ellipsis" size={18} tintColor={theme.textSecondary} />
           </Pressable>
         ) : null}
       </View>
@@ -117,7 +117,7 @@ export function WorkoutCard({
           {metrics.map(metric => (
             <View key={metric.label} style={styles.metric}>
               <View style={[styles.metricIcon, { borderColor: metric.accent }]}>
-                <SymbolView name={metric.icon} size={20} tintColor={metric.accent} />
+                <Icon name={metric.icon} size={20} tintColor={metric.accent} />
               </View>
 
               <View style={styles.metricText}>

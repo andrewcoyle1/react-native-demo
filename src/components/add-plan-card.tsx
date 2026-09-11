@@ -4,7 +4,7 @@
  * Outlined and unfilled, so it reads as an empty slot waiting to be filled
  * rather than as a plan that already exists.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from './themed-text';
@@ -37,7 +37,7 @@ export function AddPlanCard({
         pressed && styles.pressed,
       ]}>
       <ThemedView style={[styles.circle, { borderColor: theme.backgroundSelected }]}>
-        <SymbolView name="plus" size={26} tintColor={theme.text} />
+        <Icon name="plus" size={26} tintColor={theme.text} />
       </ThemedView>
 
       <ThemedText style={styles.title}>{title}</ThemedText>
