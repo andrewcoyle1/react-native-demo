@@ -27,6 +27,7 @@ function seed(uid: string): UserModel | null {
     name: 'Sam Rivera',
     dateOfBirth: new Date('1990-05-14T00:00:00.000Z'),
     sex: 'other',
+    units: 'metric',
     createdAt: new Date(now.getTime() - 86_400_000),
     modifiedAt: new Date(now.getTime() - 86_400_000),
   };
@@ -65,6 +66,7 @@ function write(uid: string, draft: UserDraft, existing: UserModel | null): UserM
     name: draft.name.trim(),
     dateOfBirth: draft.dateOfBirth,
     sex: draft.sex,
+    units: draft.units,
     createdAt: existing?.createdAt ?? now,
     modifiedAt: now,
   };

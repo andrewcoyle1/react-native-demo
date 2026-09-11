@@ -13,6 +13,9 @@ import { mockUserService } from '@/providers/user-provider/services/mock-user-se
 
 export const mockOnboardingService: OnboardingService = {
   async complete(uid, draft) {
-    await mockUserService.create(uid, draft.profile);
+    // `units` sits beside `profile` on the draft rather than inside it, since
+    // the API takes it as a sibling field. The user seam keeps the two together,
+    // so they are rejoined here.
+    await mockUserService.create(uid, { ...draft.profile, units: draft.units });
   },
 };

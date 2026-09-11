@@ -4,6 +4,9 @@
  * Profile is a tab screen rather than a route pushed over the tabs, which is
  * what lets it wipe in like the others. It is hidden from the tab bar — the
  * header's avatar button is how you reach it.
+ *
+ * The settings modals it opens are not routes here: they live in `app/settings`
+ * so they present above the tab bar. See that layout for why.
  */
 import { Stack } from 'expo-router';
 

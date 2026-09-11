@@ -32,6 +32,7 @@ function toUserModel(dto: UserDTO): UserModel {
     name: dto.name,
     dateOfBirth: toDate(dto.dateOfBirth),
     sex: dto.sex,
+    units: dto.units,
     createdAt: dto.createdAt ? new Date(dto.createdAt) : null,
     modifiedAt: dto.modifiedAt ? new Date(dto.modifiedAt) : null,
   };
@@ -52,6 +53,7 @@ function toBody(draft: Partial<UserDraft>) {
         }
       : {}),
     ...(draft.sex !== undefined ? { sex: draft.sex } : {}),
+    ...(draft.units !== undefined ? { units: draft.units } : {}),
   };
 }
 

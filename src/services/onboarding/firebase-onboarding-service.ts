@@ -15,6 +15,9 @@ import { firebaseUserService } from '@/providers/user-provider/services/firebase
 
 export const firebaseOnboardingService: OnboardingService = {
   async complete(uid, draft) {
-    await firebaseUserService.create(uid, draft.profile);
+    // `units` sits beside `profile` on the draft rather than inside it, since
+    // the API takes it as a sibling field. The user seam keeps the two together,
+    // so they are rejoined here.
+    await firebaseUserService.create(uid, { ...draft.profile, units: draft.units });
   },
 };

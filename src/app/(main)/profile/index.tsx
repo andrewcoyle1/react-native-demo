@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
-import { SymbolView } from 'expo-symbols';
+import { router } from 'expo-router';
+import { Icon } from '@/components/icon';
 import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -11,6 +12,7 @@ import { SettingsRow } from '@/components/settings-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
+import type { UnitSystem } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import {
   formatRaceDate,
@@ -18,6 +20,7 @@ import {
   toRaceTargets,
 } from '@/presenters/plan-presenter';
 import { AuthError, useAuth } from '@/providers/auth-provider';
+import { useSettings, type PoolSize } from '@/providers/settings-provider';
 import { useTraining } from '@/providers/training-provider';
 import { useUser } from '@/providers/user-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
@@ -54,12 +57,60 @@ function nameFromEmail(email: string | null) {
     .join(' ');
 }
 
+/**
+ * How each figure reads on its row.
+ *
+ * "Not set" rather than a blank or a zero: the rows are the only place an
+ * athlete sees which thresholds the plan is missing, and a dash would not say
+ * that the value is *askable*. Every one of these is nullable for that reason.
+ */
+function formatHeartRate(min: number | null, max: number | null) {
+  return min !== null && max !== null ? `${min} - ${max} bpm` : 'Not set';
+}
+
+/** Seconds to 'm:ss', with the unit the discipline is measured in. */
+function formatPace(seconds: number | null, unit: string) {
+  if (seconds === null) {
+    return 'Not set';
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(Math.round(seconds % 60)).padStart(2, '0')}${unit}`;
+}
+
+/** The calendar row's third line. Absent rather than "never" when unknown. */
+function formatSynced(at: Date | null) {
+  if (!at) {
+    return undefined;
+  }
+
+  const day = at.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `Last synced: ${day} at ${time}`;
+}
+
+function formatUnits(units: UnitSystem) {
+  return units === 'metric' ? 'Metric (km, m)' : 'Imperial (mi, yd)';
+}
+
+/** '25m' -> '25 m'. The stored value is compact; the row is not. */
+function formatPoolSize(size: PoolSize) {
+  return size.replace('m', ' m');
+}
+
 export default function ProfileScreen() {
   useScreenTracking('Profile');
 
   const { user, signOut, deleteAccount } = useAuth();
   const { state } = useUser();
   const { races, resetPlans } = useTraining();
+  const { state: settings } = useSettings();
+
+  // Every settings row reads from this; until it resolves they show "Not set",
+  // which is also what they show for a figure the athlete has never given.
+  const metrics = settings.status === 'ready' ? settings.metrics : null;
+  const preferences = settings.status === 'ready' ? settings.preferences : null;
+  const integrations = settings.status === 'ready' ? settings.integrations : null;
 
   // The goal race is the A race: the one the plans build towards.
   const race =
@@ -195,25 +246,31 @@ export default function ProfileScreen() {
           icon="heart.fill"
           iconAccent={Accents.speed}
           title="Heart Rate Range"
-          subtitle="35 - 201 bpm"
+          subtitle={formatHeartRate(metrics?.heartRateMin ?? null, metrics?.heartRateMax ?? null)}
+          onPress={() => router.push('/settings/heart-rate')}
         />
         <SettingsRow
           icon="figure.run"
           iconAccent={Zones.hard}
           title="Run Threshold Pace"
-          subtitle="4:30/km"
+          subtitle={formatPace(metrics?.runPaceSecondsPerKm ?? null, '/km')}
+          onPress={() => router.push('/settings/run-pace')}
         />
         <SettingsRow
           icon="bicycle"
           iconAccent={Zones.ride}
           title="Cycling Threshold Power (FTP)"
-          subtitle="Not set"
+          subtitle={metrics?.cyclingFtp !== null && metrics?.cyclingFtp !== undefined
+            ? `${metrics.cyclingFtp} W`
+            : 'Not set'}
+          onPress={() => router.push('/settings/cycling-ftp')}
         />
         <SettingsRow
           icon="figure.pool.swim"
           iconAccent={Zones.swim}
           title="Swim Threshold Pace"
-          subtitle="Not set"
+          subtitle={formatPace(metrics?.swimPaceSecondsPer100m ?? null, '/100m')}
+          onPress={() => router.push('/settings/swim-pace')}
         />
       </SettingsGroup>
 
@@ -222,19 +279,22 @@ export default function ProfileScreen() {
           icon="ruler"
           iconAccent={Accents.equipment}
           title="Distance Units"
-          subtitle="Metric (km, m)"
+          subtitle={formatUnits(state.status === 'ready' ? state.user.units : 'metric')}
+          onPress={() => router.push('/settings/distance-units')}
         />
         <SettingsRow
           icon="arrow.left.and.right"
           iconAccent={Accents.recovery}
           title="Pool Size"
-          subtitle="50 m"
+          subtitle={preferences ? formatPoolSize(preferences.poolSize) : 'Not set'}
+          onPress={() => router.push('/settings/pool-size')}
         />
         <SettingsRow
           icon="calendar"
           iconAccent={Accents.schedule}
           title="Availability"
           subtitle="Change your preferred training days"
+          onPress={() => router.push('/settings/availability')}
         />
       </SettingsGroup>
 
@@ -243,17 +303,17 @@ export default function ProfileScreen() {
           icon="triangle.fill"
           iconAccent={Accents.recovery}
           title="Garmin Connect"
-          subtitle="Connected"
-          subtitleAccent={Accents.endurance}
-          caption="Last synced: Sep 8, 2026 at 6:50 PM"
+          subtitle={integrations?.garmin.connected ? 'Connected' : 'Not connected'}
+          subtitleAccent={integrations?.garmin.connected ? Accents.endurance : undefined}
+          onPress={() => router.push('/settings/garmin')}
         />
         <SettingsRow
           icon="bolt.fill"
           iconAccent={Zones.hard}
           title="Strava"
-          subtitle="Connected"
-          subtitleAccent={Accents.endurance}
-          caption="Last synced: Sep 8, 2026 at 10:23 AM"
+          subtitle={integrations?.strava.connected ? 'Connected' : 'Not connected'}
+          subtitleAccent={integrations?.strava.connected ? Accents.endurance : undefined}
+          onPress={() => router.push('/settings/strava')}
         />
         <SettingsRow icon="wave.3.right" title="Wahoo" subtitle="Not connected" />
         <SettingsRow icon="figure.indoor.cycle" title="Zwift" subtitle="Not connected" />
@@ -262,9 +322,10 @@ export default function ProfileScreen() {
           icon="calendar"
           iconAccent={Accents.schedule}
           title="Calendar"
-          subtitle="Connected"
-          subtitleAccent={Accents.endurance}
-          caption="Last synced: Sep 9, 2026 at 7:26 PM"
+          subtitle={integrations?.calendar.connected ? 'Connected' : 'Not connected'}
+          subtitleAccent={integrations?.calendar.connected ? Accents.endurance : undefined}
+          caption={formatSynced(integrations?.calendar.lastSyncedAt ?? null)}
+          onPress={() => router.push('/settings/calendar-sync')}
         />
       </SettingsGroup>
 
@@ -285,12 +346,14 @@ export default function ProfileScreen() {
           iconAccent={Accents.recovery}
           title="Manage Subscription"
           subtitle="Manage your subscription"
+          onPress={() => router.push('/settings/subscription')}
         />
         <SettingsRow
           icon="ticket"
           iconAccent={Accents.schedule}
           title="Redeem Referral Code"
           subtitle="Enter a referral code"
+          onPress={() => router.push('/settings/redeem-code')}
         />
       </SettingsGroup>
 
@@ -351,7 +414,7 @@ export default function ProfileScreen() {
               { experimental_backgroundImage: social.gradient },
               pressed && styles.pressed,
             ]}>
-            <SymbolView name={social.icon} size={20} tintColor="#FFFFFF" />
+            <Icon name={social.icon} size={20} tintColor="#FFFFFF" />
           </Pressable>
         ))}
       </View>
@@ -383,7 +446,7 @@ export default function ProfileScreen() {
           <ThemedText style={[styles.dangerLabel, { color: Accents.speed }]}>
             DANGER ZONE
           </ThemedText>
-          <SymbolView
+          <Icon
             name="chevron.down"
             size={16}
             tintColor={Accents.speed}
