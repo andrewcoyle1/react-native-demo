@@ -12,7 +12,7 @@
  * right-aligned to the page gutter, and nothing sits behind them.
  */
 import { router, usePathname } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -38,12 +38,6 @@ const Header = {
   iconSize: 26,
   /** The avatar is a 24pt disc in the design, not a glyph on its own. */
   avatar: 24,
-} as const;
-
-/** Sampled from the design: the title sits a shade below the action glyphs. */
-const Tint = {
-  title: '#D4D4D4',
-  icon: '#E5E5E5',
 } as const;
 
 /** The name shown for each tab. The dashboard wears the wordmark. */
@@ -80,7 +74,7 @@ export function AppHeader() {
         {/* Keyed on the title so a changed name is a new element, which is what
             gives it something to fade in from. */}
         <Animated.View key={title} entering={FadeIn.duration(220)}>
-          <ThemedText style={styles.title}>{title}</ThemedText>
+          <ThemedText style={[styles.title, { color: theme.headerTitle }]}>{title}</ThemedText>
         </Animated.View>
 
         {/* The badge's position is decided by the width of the title beside it,
@@ -113,21 +107,21 @@ export function AppHeader() {
               {action.avatar ? (
                 /* A ringed disc, which is the shape the design has here. It
                    holds the glyph until a profile photo exists to put inside. */
-                <View style={[styles.avatar, { borderColor: Tint.icon }]}>
-                  <SymbolView
+                <View style={[styles.avatar, { borderColor: theme.icon }]}>
+                  <Icon
                     name={action.icon}
                     size={Header.avatar}
                     weight="light"
-                    tintColor={Tint.icon}
+                    tintColor={theme.icon}
                   />
                 </View>
               ) : (
-                <SymbolView
+                <Icon
                   name={action.icon}
                   size={Header.iconSize}
                   /* The design's strokes are thinner than SF's default weight. */
                   weight="light"
-                  tintColor={Tint.icon}
+                  tintColor={theme.icon}
                 />
               )}
             </Pressable>
@@ -154,7 +148,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 700,
-    color: Tint.title,
   },
   badge: {
     marginLeft: Header.titleGap,

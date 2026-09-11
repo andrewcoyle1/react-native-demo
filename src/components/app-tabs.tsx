@@ -12,7 +12,7 @@
  */
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Easing, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
@@ -47,12 +47,6 @@ const Bar = {
   padding: 16,
   /** Point size that renders a glyph ~19.7pt tall, as the design's are. */
   iconSize: 26,
-} as const;
-
-/** Sampled from the design: neither is pure white or the theme's secondary. */
-const IconTint = {
-  active: '#E5E5E5',
-  inactive: '#737373',
 } as const;
 
 /**
@@ -147,9 +141,10 @@ function AppTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
       <GlassView
         glassEffectStyle="regular"
         /* The bare material sits far lighter than the design's bar; this tints
-           it back down to the sampled fill while still letting content show
-           through as it scrolls underneath. */
-        tintColor="rgba(0, 0, 0, 0.35)"
+           it back to the sampled fill while still letting content show through
+           as it scrolls underneath. Themed, so the light appearance lifts the
+           material rather than laying a dark wash over a white page. */
+        tintColor={theme.glassTint}
         style={[
           styles.bar,
           !glassAvailable && { backgroundColor: theme.backgroundElement },
@@ -183,12 +178,12 @@ function AppTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
                 }
               }}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
-              <SymbolView
+              <Icon
                 name={focused ? tab.activeIcon : tab.icon}
                 size={Bar.iconSize}
                 /* The design's strokes are thinner than SF's default weight. */
                 weight="light"
-                tintColor={focused ? IconTint.active : IconTint.inactive}
+                tintColor={focused ? theme.icon : theme.iconInactive}
               />
             </Pressable>
           );
