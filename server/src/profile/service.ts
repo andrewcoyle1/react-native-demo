@@ -6,7 +6,7 @@
  * answers 404, and the app renders that as `UserState.absent` rather than an
  * error. Nothing here ever creates a profile on someone's behalf.
  */
-import type { UserDTO } from '../domain.ts';
+import type { AthleteMetricsDTO, UserDTO } from '../domain.ts';
 import { pool, transaction } from '../db.ts';
 import { conflict, notFound } from '../errors.ts';
 import * as q from './queries.ts';
@@ -62,5 +62,51 @@ export async function updateProfile(
 
     const row = await q.findProfile(userId, db);
     return q.toUserDTO(row!);
+  });
+}
+
+/**
+ * The athlete's threshold figures.
+ *
+ * An athlete with no metrics row is not an error: onboarding writes one, but a
+ * profile created before those questions existed has none, and the screen shows
+ * "Not set" for each figure. So this answers a DTO of nulls rather than a 404 —
+ * unlike `readProfile`, where absence genuinely means "you have not set up yet".
+ */
+export async function readMetrics(userId: string): Promise<AthleteMetricsDTO> {
+  const row = await q.findMetrics(userId, pool);
+
+  if (!row) {
+    return {
+      heightCm: null,
+      weightKg: null,
+      heartRateMin: null,
+      heartRateMax: null,
+      cyclingFtp: null,
+      runPaceSecondsPerKm: null,
+      swimPaceSecondsPer100m: null,
+      modifiedAt: null,
+    };
+  }
+
+  return q.toMetricsDTO(row);
+}
+
+/** A patch over the figures. `null` clears one; an absent key leaves it alone. */
+export type MetricsChanges = Partial<Record<keyof AthleteMetricsDTO, number | null>>;
+
+export async function updateMetrics(
+  userId: string,
+  changes: MetricsChanges,
+): Promise<AthleteMetricsDTO> {
+  return transaction(async db => {
+    // The profile is the account's existence check. Without it a metrics row
+    // could be written for an athlete who never completed setup, which would
+    // then be invisible to every screen that reads the profile first.
+    if (!(await q.findProfile(userId, db))) {
+      throw notFound('profile_not_found', 'This account has no profile yet.');
+    }
+
+    return q.toMetricsDTO(await q.patchMetrics(userId, changes, db));
   });
 }
