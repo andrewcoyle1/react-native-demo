@@ -1,26 +1,33 @@
 /**
- * Signing in.
+ * Creating an account.
  *
- * Geometry measured from the design at 440pt: 54pt fields 16pt apart, the
- * action 50pt tall, provider buttons 47pt on a hairline.
+ * The same shell as signing in, with the password minimum stated in the field
+ * rather than discovered by being rejected — the server's rule is eight
+ * characters, and the placeholder says so.
+ *
+ * The design gives this screen no footer link back to sign-in — unlike the
+ * sign-in screen, which links forward to sign-up — so the back arrow is the
+ * only way back, and the space below the provider buttons is one long void.
  */
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AuthButton, AuthFaceIdAccessory } from '@/components/auth-button';
+import { AuthButton } from '@/components/auth-button';
 import { AuthTextField } from '@/components/auth-field';
 import { AuthProviders } from '@/components/auth-providers';
-import { AuthFooterLink, AuthScreen } from '@/components/auth-screen';
+import { AuthScreen } from '@/components/auth-screen';
 import { ThemedText } from '@/components/themed-text';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { AuthError, useAuth } from '@/providers/auth-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
 
-export default function SignInScreen() {
-  useScreenTracking('Sign in');
+/** Matches the server's rule, so the field can say it up front. */
+const PASSWORD_MIN = 8;
 
-  const { signIn } = useAuth();
+export default function SignUpScreen() {
+  useScreenTracking('Sign up');
+
+  const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,32 +38,21 @@ export default function SignInScreen() {
     setError(null);
 
     try {
-      await signIn(email.trim(), password);
-      trackEvent('auth_action_succeeded', { action: 'signIn' });
-      // No navigation: signing in flips `user`, which flips the root gate.
+      await signUp(email.trim(), password);
+      trackEvent('auth_action_succeeded', { action: 'signUp' });
     } catch (caught) {
       const failure =
         caught instanceof AuthError ? caught : new AuthError('auth/unknown', 'Something went wrong.');
       setError(failure.message);
-      reportError(caught, 'auth: signIn');
-      trackEvent('auth_action_failed', { action: 'signIn', code: failure.code });
+      reportError(caught, 'auth: signUp');
+      trackEvent('auth_action_failed', { action: 'signUp', code: failure.code });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <AuthScreen
-      title="Sign In"
-      footer={
-        <AuthFooterLink
-          question="Don't have an account?"
-          action="Sign up"
-          onPress={() => router.replace('/sign-up')}
-        />
-      }>
-      {/* The design's two voids, weighted so they keep their proportions on a
-          shorter phone: 141 above the fields, 113 under the providers. */}
+    <AuthScreen title="Create a new account">
       <View style={styles.voidAbove} />
 
       <View style={styles.fields}>
@@ -74,35 +70,21 @@ export default function SignInScreen() {
           secure
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder={`Password (minimum ${PASSWORD_MIN} characters)`}
           autoCapitalize="none"
-          autoComplete="current-password"
-          textContentType="password"
+          autoComplete="new-password"
+          textContentType="newPassword"
           returnKeyType="go"
           onSubmitEditing={submit}
         />
       </View>
 
-      <ThemedText
-        themeColor="textSecondary"
-        style={styles.forgot}
-        onPress={() =>
-          setError('Password reset needs email delivery, which is not set up yet.')
-        }>
-        Forgot your password?
-      </ThemedText>
-
       <AuthButton
-        title="Sign In"
+        title="Sign Up"
         busy={busy}
-        disabled={!email.trim() || !password}
+        disabled={!email.trim() || password.length < PASSWORD_MIN}
         onPress={submit}
         style={styles.action}
-        accessory={
-          <AuthFaceIdAccessory
-            onPress={() => setError('Face ID sign-in is not wired up yet.')}
-          />
-        }
       />
 
       {error ? (
@@ -115,7 +97,7 @@ export default function SignInScreen() {
         <AuthProviders
           onPress={provider =>
             setError(
-              `Sign in with ${provider === 'apple' ? 'Apple' : 'Google'} is not wired up yet.`,
+              `Sign up with ${provider === 'apple' ? 'Apple' : 'Google'} is not wired up yet.`,
             )
           }
         />
@@ -128,24 +110,18 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   voidAbove: {
-    flex: 141,
+    flex: 99,
     minHeight: 24,
   },
   voidBelow: {
-    flex: 113,
+    flex: 390,
     minHeight: 24,
   },
   fields: {
     gap: 16,
   },
-  forgot: {
-    marginTop: 15,
-    textAlign: 'right',
-    fontSize: 13,
-    lineHeight: 18,
-  },
   action: {
-    marginTop: 38,
+    marginTop: 65,
   },
   error: {
     marginTop: 16,
@@ -153,6 +129,6 @@ const styles = StyleSheet.create({
     color: '#E5484D',
   },
   providers: {
-    marginTop: 25,
+    marginTop: 34,
   },
 });
