@@ -31,7 +31,7 @@ export default function RaceGoalScreen() {
       subtitle={`Set your target time for ${raceName}`}
       progress={stepProgress('race-goal', true)}
       onNext={() => router.push('/other-races')}>
-      <FieldCaption>{`Target time for ${raceName}`}</FieldCaption>
+      <FieldCaption style={styles.caption}>{`Target time for ${raceName}`}</FieldCaption>
 
       <View style={styles.wheels}>
         <View style={styles.wheelGroup}>
@@ -83,8 +83,13 @@ export default function RaceGoalScreen() {
 }
 
 const styles = StyleSheet.create({
+  caption: {
+    width: '100%',
+    textAlign: 'center',
+  },
   wheels: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: 24,
     marginTop: 8,
   },
@@ -98,6 +103,7 @@ const styles = StyleSheet.create({
   },
   orRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
     marginTop: 48,
@@ -107,7 +113,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   noTarget: {
-    flex: 1,
+    // Not `flex: 1` any more — that stretched the pill to the far edge, which
+    // read as filling the row rather than sitting centred in it. Shrinks
+    // instead, wrapping its text over two lines if the centred pair would
+    // otherwise run off the edge.
+    flexShrink: 1,
     borderRadius: 24,
     borderWidth: 1,
     paddingVertical: 14,

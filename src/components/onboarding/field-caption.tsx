@@ -3,14 +3,20 @@
  * screens — "Height", "Weight", "Heart Rate Range" — always
  * `ActivePlanAccent`, the same green as the progress bar.
  */
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 
 import { ThemedText } from '../themed-text';
 
 import { ActivePlanAccent } from '@/constants/theme';
 
-export function FieldCaption({ children }: { children: string }) {
-  return <ThemedText style={styles.caption}>{children}</ThemedText>;
+export function FieldCaption({
+  children,
+  style,
+}: {
+  children: string;
+  style?: StyleProp<TextStyle>;
+}) {
+  return <ThemedText style={[styles.caption, style]}>{children}</ThemedText>;
 }
 
 const styles = StyleSheet.create({
