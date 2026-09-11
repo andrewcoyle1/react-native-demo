@@ -8,7 +8,7 @@
  */
 import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { ThemedText } from './themed-text';
 
@@ -35,6 +35,14 @@ type SettingsRowProps = {
   accent?: string;
   /** Omit the chevron on rows that do not push anywhere. */
   chevron?: boolean;
+  /**
+   * Turns the row into a switch: the control sits where the chevron would, and
+   * pressing anywhere on the row flips it.
+   *
+   * Mutually exclusive with `onPress` and `chevron` — a row that both toggles
+   * and navigates has no honest affordance — so supplying this takes over both.
+   */
+  toggle?: { value: boolean; onValueChange: (value: boolean) => void };
   onPress?: () => void;
 };
 
@@ -51,15 +59,19 @@ export function SettingsRow({
   statusDot,
   accent,
   chevron = true,
+  toggle,
   onPress,
 }: SettingsRowProps) {
   const theme = useTheme();
 
+  const press = toggle ? () => toggle.onValueChange(!toggle.value) : onPress;
+
   return (
     <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole="button"
+      onPress={press}
+      disabled={!press}
+      accessibilityRole={toggle ? 'switch' : 'button'}
+      accessibilityState={toggle ? { checked: toggle.value } : undefined}
       accessibilityLabel={[title, subtitle, caption, status].filter(Boolean).join('. ')}
       style={({ pressed }) => [
         styles.row,
@@ -67,7 +79,7 @@ export function SettingsRow({
           borderColor: accent ?? theme.backgroundSelected,
           backgroundColor: accent ? `${accent}${AccentFillOpacity}` : theme.backgroundElement,
         },
-        pressed && onPress ? styles.pressed : null,
+        pressed && press && !toggle ? styles.pressed : null,
       ]}>
       {icon ? (
         <Icon name={icon} size={20} tintColor={iconAccent ?? theme.textSecondary} />
@@ -109,7 +121,19 @@ export function SettingsRow({
         </View>
       ) : null}
 
-      {chevron ? (
+      {toggle ? (
+        /* `pointerEvents="none"` so the row's own press is the single way to
+           flip it. Left live, a tap landing on the switch would fire both its
+           handler and the row's, and the value would toggle twice to nowhere. */
+        <Switch
+          value={toggle.value}
+          onValueChange={toggle.onValueChange}
+          pointerEvents="none"
+          /* Not focusable: the row above it already carries the switch role and
+             the label, so exposing both would read the setting out twice. */
+          accessible={false}
+        />
+      ) : chevron ? (
         <Icon name="chevron.right" size={14} tintColor={theme.textSecondary} />
       ) : null}
     </Pressable>
