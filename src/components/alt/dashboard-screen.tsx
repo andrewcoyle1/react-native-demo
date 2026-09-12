@@ -56,7 +56,7 @@ import { Icon as SymbolIcon } from '@/components/icon';
 import { PlanChart } from '@/components/plan-chart';
 import { AltCarousel } from './carousel';
 import { AltScreenBackground } from './screen-background';
-import { AccentFillOpacity, Accents, BottomTabInset, Spacing } from '@/constants/theme';
+import { AccentFillOpacity, Accents, BottomTabInset } from '@/constants/theme';
 
 export type AltPlan = {
   id: string;
@@ -291,7 +291,13 @@ function PlanPage({ plan }: { plan: AltPlan }) {
             fixed light values for exactly this context — a card over artwork —
             so it is reused rather than rebuilt: gluestack has no opinion about
             a bar chart, and a second implementation would be a second thing to
-            keep agreeing with the standard card. */}
+            keep agreeing with the standard card.
+
+            No insets. The chart sits in the card's content box, which `p-4`
+            already holds 16pt clear of every edge — the same gap the standard
+            card gives it with `left/right/bottom: Spacing.three`. Pulling it
+            wider than the padding would push the end bars under the rounded
+            corners, where `overflow-hidden` cuts them off. */}
         {plan.bars.length > 0 ? (
           <PlanChart
             bars={plan.bars}
@@ -299,9 +305,6 @@ function PlanPage({ plan }: { plan: AltPlan }) {
             currentProgress={plan.currentBarProgress}
             currentLabelValue={plan.currentBarLabel}
             height={60}
-            /* Negative insets cancel the card's padding so the bars run to its
-               edges, as they do on the standard card. */
-            style={{ marginHorizontal: -Spacing.four, marginBottom: -Spacing.two }}
           />
         ) : null}
       </VStack>
