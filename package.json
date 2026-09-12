@@ -62,6 +62,9 @@
     "lint": "expo lint",
     "prebuild": "expo prebuild --clean",
     "start:api": "EXPO_PUBLIC_APP_ENV=api expo start --clear",
+    "start:vps": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo start --clear",
+    "device:ios": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:ios --device --configuration Release",
+    "device:android": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:android --device --variant release",
     "backdrop:variants": "node scripts/make-backdrop-variants.mjs"
   },
   "private": true,
