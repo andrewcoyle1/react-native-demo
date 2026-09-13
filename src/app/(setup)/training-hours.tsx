@@ -4,7 +4,7 @@
  * self-assessment, not a precise number.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -55,7 +55,7 @@ export default function TrainingHoursScreen() {
                   {band.subtitle}
                 </ThemedText>
               </View>
-              {active ? <SymbolView name="checkmark.circle.fill" size={22} tintColor="#3FB984" /> : null}
+              {active ? <Icon name="checkmark.circle.fill" size={22} tintColor="#3FB984" /> : null}
             </Pressable>
           );
         })}

@@ -4,7 +4,7 @@
  * often measured differently from open distances), and a pool-size picker.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -45,7 +45,7 @@ function UnitCard({
         {unit}
       </ThemedText>
       <View style={[styles.check, { borderColor: theme.textSecondary, backgroundColor: selected ? '#FFFFFF' : 'transparent' }]}>
-        {selected ? <SymbolView name="checkmark" size={12} weight="bold" tintColor="#000000" /> : null}
+        {selected ? <Icon name="checkmark" size={12} weight="bold" tintColor="#000000" /> : null}
       </View>
     </Pressable>
   );

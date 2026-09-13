@@ -6,7 +6,7 @@
  * here alongside the connect-apps OAuth flows.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 
 import { OnboardingStep } from '@/components/onboarding-step';
 import { StatusRow } from '@/components/onboarding/status-row';
@@ -26,7 +26,7 @@ export default function NotificationsScreen() {
       progress={stepProgress('notifications', true)}
       onNext={() => router.push('/plan-overview')}>
       <StatusRow
-        icon={<SymbolView name="bell.fill" size={20} tintColor="#E5B93F" />}
+        icon={<Icon name="bell.fill" size={20} tintColor="#E5B93F" />}
         label="Enable Push Notifications"
         description="Get notified when planned workouts are completed"
         connected={answers.notificationsEnabled}

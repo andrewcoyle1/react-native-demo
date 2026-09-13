@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { NotesProvider } from '@/providers/notes-provider';
+import { SettingsProvider } from '@/providers/settings-provider';
 import { UserProvider, useUser } from '@/providers/user-provider';
 import { services } from '@/services/container';
 
@@ -34,9 +35,14 @@ export default function RootLayout() {
         <AuthProvider service={services.auth}>
           {/* Below AuthProvider: both read the signed-in uid from it. */}
           <UserProvider service={services.user}>
-            <NotesProvider service={services.notes}>
-              <RootNavigator />
-            </NotesProvider>
+            {/* Above the navigator rather than inside `(main)`: the profile's
+                settings modals are root-level routes, so a provider mounted
+                below this point would not reach them. */}
+            <SettingsProvider service={services.settings}>
+              <NotesProvider service={services.notes}>
+                <RootNavigator />
+              </NotesProvider>
+            </SettingsProvider>
           </UserProvider>
         </AuthProvider>
       </ThemeProvider>
@@ -113,13 +119,32 @@ function RootNavigator() {
           {/* A custom alert. `transparentModal` keeps the screen underneath
               mounted and visible, and a transparent contentStyle lets the
               backdrop show through — without it the screen paints an opaque
-              background and the overlay looks like a full cover. `fade`
-              replaces the slide-up. */}
+              background and the overlay looks like a full cover.
+
+              `none` rather than the `fade` this used to carry: on iOS that
+              fade is an alpha animation on the presented screen's view, and an
+              alpha below 1 anywhere above a `GlassView` stops the glass
+              rendering — see `components/modal-backdrop.tsx`. The backdrop
+              brings itself in there instead. */}
           <Stack.Screen
             name="modal"
             options={{
               presentation: 'transparentModal',
-              animation: 'fade',
+              animation: 'none',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+
+          {/* The profile's settings modals, as one group. Registered here
+              rather than inside the Profile tab so they cover the floating tab
+              bar; `app/settings/_layout.tsx` says more about why. */}
+          <Stack.Screen
+            name="settings"
+            options={{
+              /* `none` for the same reason as `modal` above. */
+              presentation: 'transparentModal',
+              animation: 'none',
               headerShown: false,
               contentStyle: { backgroundColor: 'transparent' },
             }}

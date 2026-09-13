@@ -8,33 +8,13 @@
  */
 import type pg from 'pg';
 
+import { toMetricsDTO, type MetricsRow } from '../profile/queries.ts';
+
 import type { AthleteMetricsDTO, UserDTO } from '../domain.ts';
 
 type Queryable = pg.PoolClient | pg.Pool;
 
-type MetricsRow = {
-  height_cm: number | null;
-  weight_kg: number | null;
-  heart_rate_min: number | null;
-  heart_rate_max: number | null;
-  cycling_ftp: number | null;
-  run_pace_seconds_per_km: number | null;
-  swim_pace_seconds_per_100m: number | null;
-  modified_at: Date;
-};
 
-export function toMetricsDTO(row: MetricsRow): AthleteMetricsDTO {
-  return {
-    heightCm: row.height_cm,
-    weightKg: row.weight_kg,
-    heartRateMin: row.heart_rate_min,
-    heartRateMax: row.heart_rate_max,
-    cyclingFtp: row.cycling_ftp,
-    runPaceSecondsPerKm: row.run_pace_seconds_per_km,
-    swimPaceSecondsPer100m: row.swim_pace_seconds_per_100m,
-    modifiedAt: row.modified_at.toISOString(),
-  };
-}
 
 export async function upsertProfile(
   userId: string,

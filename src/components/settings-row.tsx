@@ -6,7 +6,7 @@
  * what lets a single row carry an accent — the danger-zone entries are the same
  * component wearing a different colour.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -70,7 +70,7 @@ export function SettingsRow({
         pressed && onPress ? styles.pressed : null,
       ]}>
       {icon ? (
-        <SymbolView name={icon} size={20} tintColor={iconAccent ?? theme.textSecondary} />
+        <Icon name={icon} size={20} tintColor={iconAccent ?? theme.textSecondary} />
       ) : null}
 
       <View style={styles.text}>
@@ -110,7 +110,7 @@ export function SettingsRow({
       ) : null}
 
       {chevron ? (
-        <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />
+        <Icon name="chevron.right" size={14} tintColor={theme.textSecondary} />
       ) : null}
     </Pressable>
   );

@@ -5,6 +5,8 @@
  * `mock-user-service.ts`). Nothing here imports a vendor SDK.
  */
 
+import type { UnitSystem } from '@/domain/training';
+
 export type UserSex = 'male' | 'female' | 'other';
 
 /** The app's own profile shape. Screens never see a Firestore document. */
@@ -13,6 +15,12 @@ export type UserModel = {
   name: string;
   dateOfBirth: Date;
   sex: UserSex;
+  /**
+   * Which units every distance and pace is shown in. Part of the profile
+   * rather than of settings because it is a column on `profiles`, and the
+   * server formats nothing without it.
+   */
+  units: UnitSystem;
   /** Null until the server timestamp resolves (local writes surface optimistically). */
   createdAt: Date | null;
   modifiedAt: Date | null;
@@ -26,6 +34,7 @@ export type UserDraft = {
   name: string;
   dateOfBirth: Date;
   sex: UserSex;
+  units: UnitSystem;
 };
 
 /**

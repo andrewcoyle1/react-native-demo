@@ -11,7 +11,7 @@
  * once the request resolves, is what actually ends onboarding — the root
  * gate is waiting on exactly that.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
@@ -213,7 +213,7 @@ export default function PlanOverviewScreen() {
       <View style={[styles.planCard, { borderColor: '#E5B93F' }]}>
         <View style={styles.planHeader}>
           <View style={[styles.ring, { borderColor: '#E5B93F55' }]}>
-            <SymbolView name="bolt.fill" size={16} tintColor="#E5B93F" />
+            <Icon name="bolt.fill" size={16} tintColor="#E5B93F" />
           </View>
           <ThemedText style={styles.planHeaderText}>
             44 week {answers.planDistance ?? 'middle'} distance triathlon plan for:
@@ -239,7 +239,7 @@ export default function PlanOverviewScreen() {
 
       <View style={[styles.summaryCard, { borderColor: theme.backgroundSelected }]}>
         <View style={styles.summaryHeader}>
-          <SymbolView name="person.circle" size={22} tintColor={theme.text} />
+          <Icon name="person.circle" size={22} tintColor={theme.text} />
           <ThemedText style={styles.summaryTitle}>
             Athlete{age !== null ? `, ${age}` : ''}
           </ThemedText>
@@ -267,7 +267,7 @@ export default function PlanOverviewScreen() {
 function Stat({ icon, value, unit, sub }: { icon: 'figure.pool.swim' | 'bicycle' | 'figure.run'; value: string; unit: string; sub: string }) {
   return (
     <View style={styles.stat}>
-      <SymbolView name={icon} size={14} tintColor="#FFFFFF" />
+      <Icon name={icon} size={14} tintColor="#FFFFFF" />
       <ThemedText style={styles.statValue}>
         {value} <ThemedText themeColor="textSecondary" style={styles.statUnit}>{unit}</ThemedText>
       </ThemedText>

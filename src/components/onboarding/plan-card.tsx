@@ -7,7 +7,7 @@
  * the design's own placeholder for "how much of a leap this is," not a real
  * progress value — drawn as a fixed three-quarter arc.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '../icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '../themed-text';
@@ -86,7 +86,7 @@ export function PlanCard({
       ]}>
       <View style={[styles.ring, { borderColor: `${info.accent}55` }]}>
         <View style={[styles.ringArc, { borderColor: info.accent }]} />
-        <SymbolView name="bolt.fill" size={16} tintColor={info.accent} />
+        <Icon name="bolt.fill" size={16} tintColor={info.accent} />
       </View>
 
       <ThemedText style={styles.title}>{info.title}</ThemedText>
@@ -106,7 +106,7 @@ export function PlanCard({
 function StatRow({ icon, text }: { icon: 'figure.pool.swim' | 'bicycle' | 'figure.run'; text: string }) {
   return (
     <View style={styles.statRow}>
-      <SymbolView name={icon} size={13} tintColor="#FFFFFF" />
+      <Icon name={icon} size={13} tintColor="#FFFFFF" />
       <ThemedText style={styles.statText} numberOfLines={1}>
         {text}
       </ThemedText>

@@ -5,7 +5,7 @@
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -39,7 +39,7 @@ export default function ConnectAppsScreen() {
             key={platform.key}
             icon={
               platform.key === 'apple-watch' ? (
-                <SymbolView name="applewatch" size={20} tintColor="#FFFFFF" />
+                <Icon name="applewatch" size={20} tintColor="#FFFFFF" />
               ) : (
                 <ThemedText style={[styles.brandGlyph, platform.accent ? { color: platform.accent } : null]}>
                   {platform.icon}

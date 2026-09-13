@@ -14,7 +14,7 @@
  * the scroll settles.
  */
 import { Children, useState, type ReactNode } from 'react';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -207,7 +207,7 @@ function AddIndicator({
       accessibilityLabel="Create a new plan"
       hitSlop={Spacing.two}>
       <Animated.View style={style}>
-        <SymbolView name="plus" size={14} tintColor={theme.text} />
+        <Icon name="plus" size={14} tintColor={theme.text} />
       </Animated.View>
     </Pressable>
   );

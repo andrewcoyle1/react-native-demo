@@ -4,7 +4,7 @@
  * The Trends and Plan screens are built from these: the header names the group
  * and the pill, when present, is the one-word verdict on it.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -45,7 +45,7 @@ export function SectionCard({
       type="backgroundElement"
       style={[styles.card, { borderColor: theme.backgroundSelected }, style]}>
       <View style={styles.header}>
-        <SymbolView name={icon} size={20} tintColor={iconAccent} />
+        <Icon name={icon} size={20} tintColor={iconAccent} />
         <ThemedText style={styles.title}>{title}</ThemedText>
 
         {badge ? (

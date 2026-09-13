@@ -7,7 +7,7 @@
  * photograph — a light hairline and a faint dark wash, since a `#262626`
  * border disappears entirely against an image.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from './themed-text';
@@ -58,7 +58,7 @@ export function AuthFaceIdAccessory({ onPress }: { onPress: () => void }) {
         accessibilityRole="button"
         accessibilityLabel="Sign in with Face ID"
         style={({ pressed }) => [styles.accessoryCell, pressed && styles.pressed]}>
-        <SymbolView name="faceid" size={22} weight="light" tintColor={theme.textSecondary} />
+        <Icon name="faceid" size={22} weight="light" tintColor={theme.textSecondary} />
       </Pressable>
     </>
   );

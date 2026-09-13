@@ -4,7 +4,7 @@
  * Outlined rather than filled so it reads as a prompt sitting between sections,
  * not as another card of content.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -38,7 +38,7 @@ export function ActionRow({ title, subtitle, icon, accent, onPress }: ActionRowP
         pressed && styles.pressed,
       ]}>
       <View style={[styles.iconTile, { backgroundColor: `${accent}${AccentFillOpacity}` }]}>
-        <SymbolView name={icon} size={22} tintColor={accent} />
+        <Icon name={icon} size={22} tintColor={accent} />
       </View>
 
       <View style={styles.text}>

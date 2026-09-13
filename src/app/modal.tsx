@@ -1,6 +1,5 @@
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { ChoiceChip } from '@/components/choice-chip';
+import { ModalBackdrop } from '@/components/modal-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedTextInput } from '@/components/themed-text-input';
 import { Accents, Spacing } from '@/constants/theme';
@@ -29,9 +29,6 @@ import { reportError, trackEvent } from '@/services/telemetry';
  * ordinary React Native, which is the point: unlike `Alert.alert` it can hold a
  * category picker, a text field and an attachment row.
  */
-
-/** Liquid glass is iOS 26+; elsewhere the backdrop falls back to a plain dim. */
-const glassAvailable = isLiquidGlassAvailable();
 
 /** Placeholder until the real support address is settled. */
 const SupportEmail = 'support@example.com';
@@ -100,23 +97,28 @@ export default function FeedbackModal() {
   }
 
   return (
-    // `entering`/`exiting` fade the backdrop independently of the route
-    // transition, so the dim does not pop in.
-    <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(120)} style={styles.fill}>
-      {/* The backdrop blurs the dashboard rather than merely dimming it, and
-          doubles as the dismiss target people expect from a tap outside. */}
-      <GlassView
-        glassEffectStyle="regular"
-        colorScheme="dark"
-        tintColor="rgba(0, 0, 0, 0.55)"
-        style={[styles.fill, !glassAvailable && styles.backdropFallback]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss"
-          style={StyleSheet.absoluteFill}
-          onPress={dismiss}
-        />
+    /* The backdrop blurs the dashboard rather than merely dimming it, and
+       doubles as the dismiss target people expect from a tap outside. Pinned
+       dark, because the content on it is not themed. */
+    <ModalBackdrop
+      colorScheme="dark"
+      tintColor="rgba(0, 0, 0, 0.55)"
+      fallbackColor="rgba(0, 0, 0, 0.75)">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss"
+        style={StyleSheet.absoluteFill}
+        onPress={dismiss}
+      />
 
+      {/* The fade lives here rather than on the backdrop: this sits inside the
+          glass view's content, where an opacity animation is supported. Run it
+          over the whole backdrop and the blur stops rendering — see
+          `components/modal-backdrop.tsx`. */}
+      <Animated.View
+        entering={FadeIn.duration(160)}
+        exiting={FadeOut.duration(120)}
+        style={styles.centre}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.centre}>
@@ -124,7 +126,7 @@ export default function FeedbackModal() {
           <Pressable accessibilityViewIsModal>
             <View style={styles.sheet}>
               <View style={styles.header}>
-                <SymbolView name="questionmark.bubble" size={26} tintColor={theme.text} />
+                <Icon name="questionmark.bubble" size={26} tintColor={theme.text} />
                 <ThemedText style={styles.title}>Share feedback</ThemedText>
 
                 <Pressable
@@ -133,7 +135,7 @@ export default function FeedbackModal() {
                   accessibilityLabel={`Or email us at ${SupportEmail}`}
                   style={({ pressed }) => [styles.mailPill, pressed && styles.pressed]}>
                   <ThemedText style={styles.mailText}>or</ThemedText>
-                  <SymbolView name="envelope.open" size={16} tintColor={theme.text} />
+                  <Icon name="envelope.open" size={16} tintColor={theme.text} />
                   <ThemedText style={styles.mailText}>us</ThemedText>
                 </Pressable>
               </View>
@@ -172,7 +174,7 @@ export default function FeedbackModal() {
                 accessibilityRole="button"
                 accessibilityLabel="Attach screenshots"
                 style={({ pressed }) => [styles.attach, pressed && styles.pressed]}>
-                <SymbolView name="camera" size={18} tintColor={theme.text} />
+                <Icon name="camera" size={18} tintColor={theme.text} />
                 <ThemedText style={styles.attachText}>Attach screenshots</ThemedText>
               </Pressable>
 
@@ -198,18 +200,12 @@ export default function FeedbackModal() {
             </View>
           </Pressable>
         </KeyboardAvoidingView>
-      </GlassView>
-    </Animated.View>
+      </Animated.View>
+    </ModalBackdrop>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-  },
-  backdropFallback: {
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-  },
   centre: {
     flex: 1,
     justifyContent: 'center',

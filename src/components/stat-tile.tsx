@@ -6,7 +6,7 @@
  * The direction is a glyph in a tinted disc rather than a coloured number alone,
  * so "up" survives being read by someone who cannot separate the hues.
  */
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
@@ -38,7 +38,7 @@ type StatTileProps = {
 export function StatTile({ label, value, unit, accent, icon, trend, centred }: StatTileProps) {
   return (
     <View style={[styles.tile, centred && styles.centred]}>
-      {icon ? <SymbolView name={icon} size={24} tintColor={accent} /> : null}
+      {icon ? <Icon name={icon} size={24} tintColor={accent} /> : null}
 
       <ThemedText themeColor="textSecondary" style={styles.label}>
         {label.toUpperCase()}
@@ -61,7 +61,7 @@ export function StatTile({ label, value, unit, accent, icon, trend, centred }: S
               styles.trend,
               { backgroundColor: `${accent ?? '#888888'}${AccentFillOpacity}` },
             ]}>
-            <SymbolView name={TrendSymbols[trend]} size={12} tintColor={accent} />
+            <Icon name={TrendSymbols[trend]} size={12} tintColor={accent} />
           </View>
         ) : null}
       </View>

@@ -3,7 +3,7 @@
  * since there is no event to aim it at.
  */
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from '@/components/icon';
 import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -18,19 +18,19 @@ const Goals: { key: TrainingGoal; title: string; description: string; icon: Reac
     key: 'fitness',
     title: 'Improve overall fitness',
     description: 'Get stronger and faster across swimming, cycling, and running',
-    icon: <SymbolView name="heart.text.square" size={20} tintColor="#3FB984" />,
+    icon: <Icon name="heart.text.square" size={20} tintColor="#3FB984" />,
   },
   {
     key: 'weight',
     title: 'Lose weight',
     description: 'Use triathlon training to reach your target weight',
-    icon: <SymbolView name="figure" size={20} tintColor="#E5B93F" />,
+    icon: <Icon name="figure" size={20} tintColor="#E5B93F" />,
   },
   {
     key: 'future-season',
     title: 'Prepare for future race season',
     description: 'Stay active and maintain base fitness until next season',
-    icon: <SymbolView name="chevron.right.2" size={20} tintColor="#6C7CE5" />,
+    icon: <Icon name="chevron.right.2" size={20} tintColor="#6C7CE5" />,
   },
 ];
 

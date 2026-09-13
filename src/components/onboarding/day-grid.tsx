@@ -11,7 +11,8 @@
  * Geometry measured from the design at 440pt: 3 columns, ~8pt gutters, cards
  * a little taller than wide, an 11pt caption size for the day label.
  */
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import type { SFSymbol } from 'expo-symbols';
+import { Icon } from '../icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '../themed-text';
@@ -72,7 +73,7 @@ export function DayGrid({
               pressed && !disabled && isEnabled && styles.pressed,
             ]}>
             {accent && isOn ? (
-              <SymbolView name={accent.icon} size={14} weight="regular" tintColor={accent.color} />
+              <Icon name={accent.icon} size={14} weight="regular" tintColor={accent.color} />
             ) : null}
             <ThemedText style={[styles.label, { color: tint }]}>
               {day}
@@ -87,7 +88,7 @@ export function DayGrid({
                 },
               ]}>
               {isOn ? (
-                <SymbolView
+                <Icon
                   name="checkmark"
                   size={12}
                   weight="bold"

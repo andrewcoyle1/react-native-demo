@@ -52,6 +52,8 @@ function toUserModel(id: string, data: Record<string, unknown> | undefined): Use
     name: data.name,
     dateOfBirth,
     sex: data.sex,
+    // Firebase profiles predate the column; metric is what the server defaults to.
+    units: data.units === 'imperial' ? 'imperial' : 'metric',
     createdAt: toDate(data.createdAt),
     modifiedAt: toDate(data.modifiedAt),
   };
@@ -71,6 +73,7 @@ export const firebaseUserService: UserService = {
       name: draft.name.trim(),
       dateOfBirth: Timestamp.fromDate(draft.dateOfBirth),
       sex: draft.sex,
+      units: draft.units,
       createdAt: serverTimestamp(),
       modifiedAt: serverTimestamp(),
     });
@@ -83,6 +86,7 @@ export const firebaseUserService: UserService = {
         ? { dateOfBirth: Timestamp.fromDate(changes.dateOfBirth) }
         : {}),
       ...(changes.sex !== undefined ? { sex: changes.sex } : {}),
+      ...(changes.units !== undefined ? { units: changes.units } : {}),
       modifiedAt: serverTimestamp(),
     });
   },

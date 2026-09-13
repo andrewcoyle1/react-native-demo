@@ -11,7 +11,7 @@
  * failing silently or pretending to work.
  */
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from './themed-text';
@@ -66,7 +66,7 @@ function ProviderButton({
         pressed && styles.pressed,
       ]}>
       {provider === 'apple' ? (
-        <SymbolView name="apple.logo" size={22} tintColor="#FFFFFF" />
+        <Icon name="apple.logo" size={22} tintColor="#FFFFFF" />
       ) : (
         /* Google's mark is four colours and not in SF Symbols; redrawn from
            its public geometry as a small raster asset instead. */

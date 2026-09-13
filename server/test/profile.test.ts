@@ -198,3 +198,100 @@ describe('ownership', () => {
     assert.equal(response.json().name, 'Mine');
   });
 });
+
+describe('athlete metrics', () => {
+  /** A profile has to exist before metrics can hang off it. */
+  async function withProfile(email?: string): Promise<string> {
+    const token = await signUp(email);
+    const created = await app.inject({
+      method: 'POST',
+      url: '/v1/profile',
+      headers: authed(token),
+      payload: DRAFT,
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    return token;
+  }
+
+  const read = (token: string) =>
+    app.inject({ method: 'GET', url: '/v1/profile/metrics', headers: authed(token) });
+
+  const patch = (token: string, payload: Record<string, number | null>) =>
+    app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/metrics',
+      headers: authed(token),
+      payload,
+    });
+
+  it('answers a set of nulls rather than 404 before anything is recorded', async () => {
+    // Unlike the profile itself, absent metrics are not a state the app has to
+    // model: the figures are simply not set, which is what the screen shows.
+    const response = await read(await withProfile());
+
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(response.json(), {
+      heightCm: null,
+      weightKg: null,
+      heartRateMin: null,
+      heartRateMax: null,
+      cyclingFtp: null,
+      runPaceSecondsPerKm: null,
+      swimPaceSecondsPer100m: null,
+      modifiedAt: null,
+    });
+  });
+
+  it('leaves the figures it was not given alone', async () => {
+    // The whole reason this is not onboarding's `upsertMetrics`: editing one
+    // figure from the profile screen must not blank the others beside it.
+    const token = await withProfile();
+    await patch(token, { heartRateMin: 42, heartRateMax: 188 });
+
+    const response = await patch(token, { cyclingFtp: 260 });
+    const body = response.json();
+
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(body.cyclingFtp, 260);
+    assert.equal(body.heartRateMin, 42);
+    assert.equal(body.heartRateMax, 188);
+  });
+
+  it('clears a figure given an explicit null', async () => {
+    // Null and absent mean different things on this endpoint, which is what
+    // lets the Clear button on the pace pickers work at all.
+    const token = await withProfile();
+    await patch(token, { cyclingFtp: 260, heartRateMin: 42 });
+
+    const body = (await patch(token, { cyclingFtp: null })).json();
+
+    assert.equal(body.cyclingFtp, null);
+    assert.equal(body.heartRateMin, 42, 'clearing one figure must not clear another');
+  });
+
+  it('refuses a figure outside what the column allows', async () => {
+    const response = await patch(await withProfile(), { heartRateMax: 900 });
+    assert.equal(response.statusCode, 422, response.body);
+  });
+
+  it('refuses an empty patch rather than reporting a no-op as success', async () => {
+    const response = await patch(await withProfile(), {});
+    assert.equal(response.statusCode, 422, response.body);
+  });
+
+  it('will not write metrics for an account with no profile', async () => {
+    const response = await patch(await signUp(), { cyclingFtp: 260 });
+    assert.equal(response.statusCode, 404, response.body);
+  });
+
+  it('keeps one athlete out of another’s figures', async () => {
+    const mine = await withProfile('mine@example.com');
+    const theirs = await withProfile('theirs@example.com');
+
+    await patch(mine, { cyclingFtp: 260 });
+    await patch(theirs, { cyclingFtp: 180 });
+
+    assert.equal((await read(mine)).json().cyclingFtp, 260);
+    assert.equal((await read(theirs)).json().cyclingFtp, 180);
+  });
+});

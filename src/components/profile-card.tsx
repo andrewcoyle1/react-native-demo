@@ -6,7 +6,7 @@
  * the same equipment gold used elsewhere, at the same fill opacity.
  */
 import { Image, type ImageProps } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
+import { Icon } from './icon';
 import type { SFSymbol } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -76,7 +76,7 @@ export function ProfileCard({
           accessibilityLabel="Edit profile"
           hitSlop={Spacing.two}
           style={({ pressed }) => pressed && styles.pressed}>
-          <SymbolView name="pencil" size={16} tintColor={theme.textSecondary} />
+          <Icon name="pencil" size={16} tintColor={theme.textSecondary} />
         </Pressable>
       </View>
 
@@ -108,7 +108,7 @@ export function ProfileCard({
           accessibilityLabel={`Edit target time, currently ${target}`}
           hitSlop={Spacing.two}
           style={({ pressed }) => [styles.targetButton, pressed && styles.pressed]}>
-          <SymbolView name="pencil" size={13} tintColor={theme.textSecondary} />
+          <Icon name="pencil" size={13} tintColor={theme.textSecondary} />
           <ThemedText themeColor="textSecondary" style={styles.target}>
             {target}
           </ThemedText>
@@ -124,7 +124,7 @@ export function ProfileCard({
         {targets.map(item => (
           <View key={item.icon} style={styles.targetItem}>
             <View style={styles.targetTop}>
-              <SymbolView name={item.icon} size={16} tintColor={item.accent} />
+              <Icon name={item.icon} size={16} tintColor={item.accent} />
               <ThemedText style={styles.targetValue}>
                 {item.value}
                 <ThemedText themeColor="textSecondary" style={styles.targetUnit}>
