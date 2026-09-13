@@ -188,6 +188,9 @@ function DashboardBody() {
                     value: metric.value,
                     unit: metric.unit,
                   })),
+                  segments: card.segments,
+                  totalMinutes: card.totalMinutes,
+                  tickEvery: card.tickEvery,
                   coach: card.coach,
                 };
               }),

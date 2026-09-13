@@ -53,10 +53,11 @@ import { VStack } from '@/components/ui/vstack';
 /* The app's SF Symbol renderer. gluestack's icon set has no swim, bike or run
    glyph, and the disciplines are the one place this screen needs them. */
 import { Icon as SymbolIcon } from '@/components/icon';
+import { IntervalChart, type IntervalSegment } from '@/components/interval-chart';
 import { PlanChart } from '@/components/plan-chart';
 import { AltCarousel } from './carousel';
 import { AltScreenBackground } from './screen-background';
-import { AccentFillOpacity, Accents, BottomTabInset } from '@/constants/theme';
+import { AccentFillOpacity, Accents, BottomTabInset, Spacing } from '@/constants/theme';
 
 export type AltPlan = {
   id: string;
@@ -103,6 +104,12 @@ export type AltSession = {
   completed: boolean;
   tags: string[];
   metrics: { label: string; value: string; unit?: string }[];
+  /* The session's shape over time — warm-up, efforts, recoveries. Absent for
+     unstructured work, which is why every field here is optional rather than
+     defaulted: a steady ride has nothing to draw and should draw nothing. */
+  segments?: IntervalSegment[];
+  totalMinutes?: number;
+  tickEvery?: number;
   coach?: string;
 };
 
@@ -453,6 +460,24 @@ function SessionRow({ session, onPress }: { session: AltSession; onPress: () => 
                 </VStack>
               ))}
             </HStack>
+          ) : null}
+
+          {/* The session's shape, after the numbers that summarise it and
+              before the coach's name — the same order the standard card uses.
+              `IntervalChart` is reused rather than rebuilt: it is themed text
+              and plain views, and these rows sit on a card rather than over
+              artwork, so nothing about it needs restating in gluestack. */}
+          {session.segments && session.segments.length > 0 ? (
+            <IntervalChart
+              segments={session.segments}
+              totalMinutes={session.totalMinutes ?? 0}
+              tickEvery={session.tickEvery}
+              height={48}
+              /* Shorter than the standard card's 64: this chart shares its
+                 column with the icon chip rather than running the card's full
+                 width, and at 64 it out-weighed the title above it. */
+              style={{ paddingTop: Spacing.one }}
+            />
           ) : null}
 
           {session.coach ? (
