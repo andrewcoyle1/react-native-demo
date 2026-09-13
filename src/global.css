@@ -1,3 +1,17 @@
+/*
+ * Two things live here, and they are unrelated.
+ *
+ * The `--font-*` block below is the original occupant: web-only font stacks
+ * that `constants/theme.ts` reads through `Fonts`. It predates everything else
+ * in this file and is untouched.
+ *
+ * Everything after it is the gluestack-ui v5 theme, which powers the alternate
+ * Dashboard and Profile behind the "Alternate UI" switch. Tailwind v4 is CSS-first — there
+ * is deliberately no `tailwind.config.js`, and this file *is* the config. It is
+ * also the file NativeWind v5 compiles: react-native-css has no `input` option,
+ * it transforms whichever `.css` file the app imports, which `app/_layout.tsx`
+ * does at the root.
+ */
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
@@ -6,4 +20,197 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css';
+@import 'nativewind/theme';
+
+/*
+ * Tailwind v4 scans for class names starting from this file's directory, which
+ * would miss nothing under `src/` but would also crawl it all. Naming the two
+ * trees that actually carry classes keeps the compile bounded: the copied
+ * gluestack primitives, and the alternate screens built on them. Nothing else
+ * in the app uses a className.
+ */
+@source './components/ui';
+@source './components/alt';
+@source './app';
+
+/*
+ * The palette is `constants/theme.ts` restated as gluestack's semantic tokens,
+ * channel-separated for Tailwind's `/<alpha>` syntax. Deliberately the same
+ * colours: the point of the alternate UI is a different *construction* of the
+ * same product, so a difference in hue would read as a bug rather than as the
+ * experiment. `--primary` is `action-button.tsx`'s blue, and `--destructive`
+ * its red.
+ */
+@layer theme {
+  :root {
+    --background: 255 255 255;
+    --foreground: 0 0 0;
+    --card: 240 240 243;
+    --card-foreground: 0 0 0;
+    --popover: 255 255 255;
+    --popover-foreground: 0 0 0;
+    --primary: 60 135 247;
+    --primary-foreground: 255 255 255;
+    --secondary: 224 225 230;
+    --secondary-foreground: 0 0 0;
+    --muted: 240 240 243;
+    --muted-foreground: 96 100 108;
+    --accent: 240 240 243;
+    --accent-foreground: 0 0 0;
+    --destructive: 229 72 77;
+    --border: 224 225 230;
+    --input: 224 225 230;
+    --ring: 60 135 247;
+    --indicator-primary: 60 135 247;
+    --indicator-info: 60 135 247;
+  }
+
+  /*
+   * Three selectors for two appearances. `prefers-color-scheme` is what the
+   * device reports, and is the one that matters on iOS and Android — it is how
+   * the app's `userInterfaceStyle: "automatic"` reaches the stylesheet.
+   * `.dark`/`.light` are web-only, for an explicit override, and are declared
+   * so a future in-app appearance toggle has something to switch.
+   *
+   * The media query's selector is a bare `:root`, not `:root:not(.light)`.
+   * The narrowed form compiles away to nothing on native — react-native-css
+   * cannot match a class on the root — and the entire dark palette is silently
+   * dropped with it. Verified by checking for the dark values in the exported
+   * bundle, because nothing warns when this goes wrong; it just renders light.
+   */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 16 16 16;
+      --foreground: 255 255 255;
+      --card: 23 23 23;
+      --card-foreground: 255 255 255;
+      --popover: 23 23 23;
+      --popover-foreground: 255 255 255;
+      --primary: 60 135 247;
+      --primary-foreground: 255 255 255;
+      --secondary: 38 38 38;
+      --secondary-foreground: 255 255 255;
+      --muted: 38 38 38;
+      --muted-foreground: 176 180 186;
+      --accent: 38 38 38;
+      --accent-foreground: 255 255 255;
+      --destructive: 229 72 77;
+      --border: 38 38 38;
+      --input: 38 38 38;
+      --ring: 60 135 247;
+      --indicator-primary: 60 135 247;
+      --indicator-info: 60 135 247;
+    }
+  }
+
+  :root.dark {
+    --background: 16 16 16;
+    --foreground: 255 255 255;
+    --card: 23 23 23;
+    --card-foreground: 255 255 255;
+    --popover: 23 23 23;
+    --popover-foreground: 255 255 255;
+    --primary: 60 135 247;
+    --primary-foreground: 255 255 255;
+    --secondary: 38 38 38;
+    --secondary-foreground: 255 255 255;
+    --muted: 38 38 38;
+    --muted-foreground: 176 180 186;
+    --accent: 38 38 38;
+    --accent-foreground: 255 255 255;
+    --destructive: 229 72 77;
+    --border: 38 38 38;
+    --input: 38 38 38;
+    --ring: 60 135 247;
+    --indicator-primary: 60 135 247;
+    --indicator-info: 60 135 247;
+  }
+
+  :root.light {
+    --background: 255 255 255;
+    --foreground: 0 0 0;
+    --card: 240 240 243;
+    --card-foreground: 0 0 0;
+    --popover: 255 255 255;
+    --popover-foreground: 0 0 0;
+    --primary: 60 135 247;
+    --primary-foreground: 255 255 255;
+    --secondary: 224 225 230;
+    --secondary-foreground: 0 0 0;
+    --muted: 240 240 243;
+    --muted-foreground: 96 100 108;
+    --accent: 240 240 243;
+    --accent-foreground: 0 0 0;
+    --destructive: 229 72 77;
+    --border: 224 225 230;
+    --input: 224 225 230;
+    --ring: 60 135 247;
+    --indicator-primary: 60 135 247;
+    --indicator-info: 60 135 247;
+  }
+}
+
+/*
+ * `@theme inline` is what turns the channel triples above into utilities:
+ * `bg-card` resolves to `--color-card`, which resolves to `rgb(var(--card))`.
+ * Without this block the tokens exist but no class references them.
+ */
+@theme inline {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+  --color-popover: rgb(var(--popover));
+  --color-popover-foreground: rgb(var(--popover-foreground));
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+  --color-secondary: rgb(var(--secondary));
+  --color-secondary-foreground: rgb(var(--secondary-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-destructive: rgb(var(--destructive));
+  --color-border: rgb(var(--border));
+  --color-input: rgb(var(--input));
+  --color-ring: rgb(var(--ring));
+
+  /*
+   * Not in gluestack's own theme template, but referenced by the components it
+   * copies in: `pressable` focuses to `ring-indicator-info` and `switch` to
+   * `ring-indicator-primary`. Without these two the focus ring compiles to
+   * nothing and keyboard focus is invisible.
+   */
+  --color-indicator-primary: rgb(var(--indicator-primary));
+  --color-indicator-info: rgb(var(--indicator-info));
+
+  /* `text`'s smallest size. Also absent from the template. */
+  --text-2xs: 10px;
+
+  /*
+   * Colours for content sitting on a photograph — the dashboard's plan cards.
+   *
+   * Not appearance-dependent, and deliberately so: the surface under them is
+   * arbitrary artwork, which has no light or dark mode of its own, so these are
+   * the same in both. That is also why they are their own tokens rather than
+   * `foreground`/`muted-foreground`, which would go black over the photo in
+   * light mode.
+   *
+   * Written as literal `rgb(… / …)` rather than as `bg-white/25`-style opacity
+   * utilities, which are broken for static colours in NativeWind v5 preview.4:
+   * `bg-black/60` compiles two rules, and the one that wins on specificity
+   * resolves to `#NaNNaNNaN99` — an invalid colour that silently paints
+   * nothing. The `var()`-backed tokens above are unaffected (`bg-primary/20`
+   * compiles correctly), so this only bites on `black` and `white`.
+   */
+  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-on-scrim: rgb(255 255 255);
+  --color-on-scrim-muted: rgb(255 255 255 / 0.9);
+  --color-on-scrim-track: rgb(255 255 255 / 0.25);
+  --color-on-scrim-chip: rgb(255 255 255 / 0.2);
+  --color-on-scrim-line: rgb(255 255 255 / 0.3);
 }

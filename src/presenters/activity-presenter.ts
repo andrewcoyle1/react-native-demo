@@ -15,7 +15,22 @@ import { formatDistance, formatDuration, formatSpeed } from '@/domain/format';
 import type { ActivitySource, UnitSystem } from '@/domain/training';
 import type { ActivityModel } from '@/providers/activities-provider';
 
-export type ActivityStat = { icon: SFSymbol; value: string; unit?: string; accent: string };
+export type ActivityStat = {
+  icon: SFSymbol;
+  /**
+   * What the figure is, in a word.
+   *
+   * The standard row labels its figures with the symbol alone, and does not
+   * read this. The gluestack build sets its numbers value-over-label — the
+   * treatment the Dashboard already gives a session's figures — and a label is
+   * part of what a figure *is* rather than a detail of how one build draws it,
+   * so it is stated here rather than reverse-engineered from the icon.
+   */
+  label: string;
+  value: string;
+  unit?: string;
+  accent: string;
+};
 
 export type ActivityMark = { icon: SFSymbol; accent: string };
 
@@ -44,21 +59,41 @@ export function toActivityStats(activity: ActivityModel, units: UnitSystem): Act
 
   if (stats.distanceMetres !== undefined) {
     const distance = formatDistance(stats.distanceMetres, units, discipline);
-    out.push({ icon: 'ruler', value: distance.value, unit: distance.unit, accent: Accents.equipment });
+    out.push({
+      icon: 'ruler',
+      label: 'Distance',
+      value: distance.value,
+      unit: distance.unit,
+      accent: Accents.equipment,
+    });
   }
 
   if (stats.durationSeconds !== undefined) {
-    out.push({ icon: 'clock', value: formatDuration(stats.durationSeconds), accent: Accents.recovery });
+    out.push({
+      icon: 'clock',
+      label: 'Time',
+      value: formatDuration(stats.durationSeconds),
+      accent: Accents.recovery,
+    });
   }
 
   if (stats.paceSecondsPerKm !== undefined) {
     const speed = formatSpeed(stats.paceSecondsPerKm, units, discipline);
-    out.push({ icon: 'speedometer', value: speed.value, unit: speed.unit, accent: Accents.speed });
+    out.push({
+      icon: 'speedometer',
+      /* "Pace" for the disciplines measured in time per distance, "Speed" for
+         the ones measured the other way up — `formatSpeed` already chose. */
+      label: speed.unit.startsWith('/') ? 'Pace' : 'Speed',
+      value: speed.value,
+      unit: speed.unit,
+      accent: Accents.speed,
+    });
   }
 
   if (stats.averageHeartRate !== undefined) {
     out.push({
       icon: 'heart.fill',
+      label: 'Avg HR',
       value: `${Math.round(stats.averageHeartRate)}`,
       unit: 'bpm',
       accent: Accents.speed,
@@ -68,6 +103,7 @@ export function toActivityStats(activity: ActivityModel, units: UnitSystem): Act
   if (stats.calories !== undefined) {
     out.push({
       icon: 'flame.fill',
+      label: 'Calories',
       value: `${Math.round(stats.calories)}`,
       unit: 'kcal',
       accent: Zones.hard,

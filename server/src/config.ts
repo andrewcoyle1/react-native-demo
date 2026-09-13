@@ -22,6 +22,16 @@ function optional(name: string, fallback: string): string {
 export const config = {
   databaseUrl: required('DATABASE_URL'),
   port: Number(optional('PORT', '4000')),
+
+  /*
+   * Which interface to listen on.
+   *
+   * `0.0.0.0` by default so a simulator or a device on the LAN can reach a
+   * development server. Behind a reverse proxy set it to `127.0.0.1`: the proxy
+   * is then the only way in, and a firewall rule is no longer the single thing
+   * standing between the port and the internet.
+   */
+  host: optional('HOST', '0.0.0.0'),
   jwtSecret: required('JWT_SECRET'),
   isProduction: process.env.NODE_ENV === 'production',
 

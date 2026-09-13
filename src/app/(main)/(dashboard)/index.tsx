@@ -2,10 +2,11 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
+import { AltDashboardScreen, type AltDay } from '@/components/alt/dashboard-screen';
 import { ActionRow } from '@/components/action-row';
 import { AddPlanCard } from '@/components/add-plan-card';
 import { Carousel } from '@/components/carousel';
-import { DayHeading } from '@/components/day-heading';
+import { DayHeading, dayHeadingLabels } from '@/components/day-heading';
 import { PlanCard } from '@/components/plan-card';
 import { PromptCard } from '@/components/prompt-card';
 import { SectionScreen } from '@/components/section-screen';
@@ -13,11 +14,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WorkoutCard } from '@/components/workout-card';
 import { Accents, Spacing } from '@/constants/theme';
+import { formatDayCount } from '@/domain/format';
 import { daysBetween, toDateKey, type DateRange } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { toPlanCardProps } from '@/presenters/plan-presenter';
 import { toWorkoutCardProps } from '@/presenters/session-presenter';
 import { useAuth } from '@/providers/auth-provider';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import { useSessions, type SessionModel } from '@/providers/sessions-provider';
 import { useTraining } from '@/providers/training-provider';
 import { TrendsProvider, useTrends } from '@/providers/trends-provider';
@@ -47,6 +50,7 @@ function DashboardBody() {
   useScreenTracking('Dashboard');
 
   const { user } = useAuth();
+  const { alternateUi, ready: preferencesReady } = useDevicePreferences();
   const { state, byDate } = useSessions();
   const { plans: planState, raceFor } = useTraining();
   const { state: trends } = useTrends();
@@ -79,6 +83,125 @@ function DashboardBody() {
   // The root gate only mounts (main) when a user exists; this narrows the type.
   if (!user) {
     return null;
+  }
+
+  /* Held rather than rendered-then-swapped, for the reason the Profile tab
+     gives at the same point: the preference comes from a file, and painting one
+     build then replacing it a frame later reads as a glitch. */
+  if (!preferencesReady) {
+    return null;
+  }
+
+  /*
+   * The gluestack build, behind the same switch as the Profile tab.
+   *
+   * It takes the state assembled above as props rather than calling the
+   * providers itself, so both builds read one copy of the week and cannot
+   * drift. The flattening to plain strings happens here because that is what
+   * the alternate layout shows: it has no chart to feed and no interval
+   * segments to draw.
+   */
+  if (alternateUi) {
+    /* One "today" for every countdown on the screen, so two plans cannot land
+       either side of midnight and disagree about what day it is. */
+    const today = toDateKey(new Date());
+
+    return (
+      <AltDashboardScreen
+        model={{
+          plans: plans.map(plan => {
+            const race = raceFor(plan);
+            const active = plan.status === 'current';
+
+            /* The week's planned hours, and what has actually been trained
+               against them. Both optional: a plan not under way has no current
+               week, and the trends slice may not have arrived yet. */
+            const planned =
+              plan.currentWeekIndex !== null
+                ? plan.weeklyPlannedHours[plan.currentWeekIndex]
+                : undefined;
+            const actual = active ? actualHoursThisWeek : undefined;
+
+            return {
+              id: plan.id,
+              active,
+              name: plan.name,
+              /* An active plan counts down to the race; one that has not begun
+                 counts down to its own start. */
+              countdown: formatDayCount(
+                daysBetween(today, active && race ? race.date : plan.startDate),
+              ),
+              countdownCaption: active
+                ? race
+                  ? `until ${race.name}`
+                  : 'of training ahead'
+                : 'until it starts',
+              raceName: race?.name ?? null,
+              phase: plan.phase,
+              weekLabel:
+                plan.currentWeekIndex !== null
+                  ? `Week ${plan.currentWeekIndex + 1} of ${plan.weeks}`
+                  : null,
+              progress: active
+                ? (actual !== undefined && planned
+                    ? Math.min(actual / planned, 1)
+                    : plan.currentWeekProgress)
+                : null,
+              hoursLabel:
+                actual !== undefined && planned
+                  ? `${Math.round(actual * 10) / 10} of ${planned} hrs`
+                  : null,
+              lengthLabel: `${plan.weeks} weeks`,
+              artwork: plan.artworkUrl ?? undefined,
+              /* The chart plots the plan's own planned hours; the label on the
+                 current bar reads what has actually been trained, which is the
+                 distinction `toPlanCardProps` documents. */
+              bars: plan.weeklyPlannedHours,
+              currentBarIndex: plan.currentWeekIndex ?? undefined,
+              currentBarProgress:
+                actual !== undefined && planned
+                  ? Math.min(actual / planned, 1)
+                  : (plan.currentWeekProgress ?? undefined),
+              currentBarLabel:
+                actual !== undefined ? Math.round(actual * 10) / 10 : undefined,
+            };
+          }),
+          days: sections.map((section): AltDay => {
+            const heading = dayHeadingLabels(section.meta);
+
+            return {
+              id: section.id,
+              title: heading.title,
+              caption: heading.caption,
+              sessions: section.data.map(session => {
+                const card = toWorkoutCardProps(session, 'metric');
+
+                return {
+                  id: session.id,
+                  title: card.title,
+                  icon: card.icon,
+                  iconAccent: card.iconAccent,
+                  completed: card.status !== undefined,
+                  tags: (card.tags ?? []).map(tag => tag.label),
+                  metrics: (card.metrics ?? []).map(metric => ({
+                    label: metric.label,
+                    value: metric.value,
+                    unit: metric.unit,
+                  })),
+                  segments: card.segments,
+                  totalMinutes: card.totalMinutes,
+                  tickEvery: card.tickEvery,
+                  coach: card.coach,
+                };
+              }),
+            };
+          }),
+          error: state.status === 'error' ? state.message : null,
+          onOpenSheet: () => router.push('/sheet'),
+          onOpenPlan: () => router.push('/plan'),
+        }}
+      />
+    );
   }
 
   return (

@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { AltTrendsScreen } from '@/components/alt/trends-screen';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { SectionCard } from '@/components/section-card';
@@ -7,6 +8,7 @@ import { StatTile } from '@/components/stat-tile';
 import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
 import { formatDistance, formatDurationParts } from '@/domain/format';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import { useTrends, type TrendsModel, type Volume } from '@/providers/trends-provider';
 
 /** Zeroes while the figures load, so the layout never jumps. */
@@ -48,10 +50,94 @@ export default function TrendsScreen() {
   useScreenTracking('Trends');
 
   const { state } = useTrends();
+  const { alternateUi, ready: preferencesReady } = useDevicePreferences();
   const trends = state.status === 'ready' ? state.data : EMPTY;
 
   const planned = toFigures(trends.planned);
   const completed = toFigures(trends.completed);
+
+  /* Held rather than rendered-then-swapped, for the reason the other tabs give
+     at the same point: the preference comes from a file, and painting one build
+     then replacing it a frame later reads as a glitch. */
+  if (!preferencesReady) {
+    return null;
+  }
+
+  if (alternateUi) {
+    /** "4" + "hr" + "30" + "min" back into one readable string. */
+    const words = (figure: ReturnType<typeof toFigures>['time']) =>
+      [figure.value, figure.unit, figure.extra, figure.extraUnit].filter(Boolean).join(' ');
+
+    const plannedSeconds = trends.planned.durationSeconds;
+
+    return (
+      <AltTrendsScreen
+        model={{
+          planned: {
+            time: words(planned.time),
+            distance: `${planned.distance.value} ${planned.distance.unit}`,
+          },
+          completed: {
+            time: words(completed.time),
+            distance: `${completed.distance.value} ${completed.distance.unit}`,
+          },
+          /* Null rather than zero when nothing is planned: a bar at 0% says
+             "you are behind", which is not true of a week with no plan. */
+          progress:
+            plannedSeconds > 0
+              ? Math.min(trends.completed.durationSeconds / plannedSeconds, 1)
+              : null,
+          formLabel: trends.form.value >= 0 ? 'Fresh' : 'Loaded',
+          formAccent: formAccent(trends.form.value),
+          load: [
+            {
+              label: 'Fatigue',
+              icon: 'battery.25',
+              value: `${trends.fatigue.value}`,
+              accent: Accents.speed,
+              direction: trends.fatigue.direction,
+            },
+            {
+              label: 'Fitness',
+              icon: 'heart',
+              value: `${trends.fitness.value}`,
+              accent: ActivePlanAccent,
+              direction: trends.fitness.direction,
+            },
+            {
+              label: 'Form',
+              icon: 'paperplane',
+              value: `${trends.form.value}`,
+              accent: formAccent(trends.form.value),
+              direction: trends.form.direction,
+            },
+          ],
+          /* Still hardcoded, exactly as in the standard build below: these are
+             athlete attributes rather than aggregates and this endpoint does
+             not carry them. Duplicated rather than shared so the day they
+             become real, both builds change in one obvious place each. */
+          athlete: [
+            {
+              label: 'VO2 max',
+              icon: 'speedometer',
+              value: '53.4',
+              accent: Accents.schedule,
+              direction: 'flat',
+            },
+            {
+              label: 'Threshold pace',
+              icon: 'gauge.with.dots.needle.bottom.50percent',
+              value: '4:31',
+              unit: '/km',
+              accent: Zones.hard,
+              direction: 'up',
+            },
+          ],
+          error: state.status === 'error' ? state.message : null,
+        }}
+      />
+    );
+  }
 
   return (
     <Screen>

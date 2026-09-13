@@ -1,10 +1,11 @@
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Icon } from '@/components/icon';
 import type { SFSymbol } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
+import { AltProfileScreen, type AltRow } from '@/components/alt/profile-screen';
 import { ProfileCard } from '@/components/profile-card';
 import { Screen } from '@/components/screen';
 import { SettingsGroup } from '@/components/settings-group';
@@ -20,6 +21,7 @@ import {
   toRaceTargets,
 } from '@/presenters/plan-presenter';
 import { AuthError, useAuth } from '@/providers/auth-provider';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import { useSettings, type PoolSize } from '@/providers/settings-provider';
 import { useTraining } from '@/providers/training-provider';
 import { useUser } from '@/providers/user-provider';
@@ -89,6 +91,24 @@ function formatSynced(at: Date | null) {
   return `Last synced: ${day} at ${time}`;
 }
 
+/**
+ * One "Connected / Not connected" line for the alternate build.
+ *
+ * The standard build spells this out per row because each row also carries an
+ * icon and an accent; here every integration reads the same way, so the shape
+ * is worth naming once. `connected` is optional rather than boolean because
+ * settings are still loading on the first paint, and "not connected" is the
+ * right thing to show for an answer that has not arrived.
+ */
+function connectionRow(label: string, connected: boolean | undefined, href?: Href): AltRow {
+  return {
+    label,
+    value: connected ? 'Connected' : 'Not connected',
+    emphasis: !!connected,
+    href,
+  };
+}
+
 function formatUnits(units: UnitSystem) {
   return units === 'metric' ? 'Metric (km, m)' : 'Imperial (mi, yd)';
 }
@@ -102,6 +122,7 @@ export default function ProfileScreen() {
   useScreenTracking('Profile');
 
   const { user, signOut, deleteAccount } = useAuth();
+  const { alternateUi, setAlternateUi, ready: preferencesReady } = useDevicePreferences();
   const { state } = useUser();
   const { races, resetPlans } = useTraining();
   const { state: settings } = useSettings();
@@ -223,6 +244,146 @@ export default function ProfileScreen() {
   // (main) only mounts when a user exists; this narrows the type.
   if (!user) {
     return null;
+  }
+
+  /*
+   * Held rather than rendered-then-swapped.
+   *
+   * The preference is read from a file, so it is not known on the first frame.
+   * Painting the standard build and replacing it a frame later reads as a
+   * glitch; a blank tab for the length of one small file read does not. The
+   * tab bar and header are siblings above this screen and stay put either way.
+   */
+  if (!preferencesReady) {
+    return null;
+  }
+
+  /*
+   * The alternate build, behind the switch at the bottom of both.
+   *
+   * It takes every value and every handler defined above as props rather than
+   * calling the providers itself. That is the whole reason the branch sits here
+   * and not at the router: there is exactly one copy of this screen's state, so
+   * the two builds cannot drift, and `components/alt/profile-screen.tsx` stays
+   * purely presentational — which is what makes it a fair look at what the
+   * component library is actually doing.
+   */
+  if (alternateUi) {
+    return (
+      <AltProfileScreen
+        model={{
+          name,
+          email: user.email,
+          version,
+          race: race
+            ? {
+                name: race.name,
+                place: race.place,
+                date: formatRaceDate(race),
+                target: formatRaceTarget(race) ?? 'No goal set',
+              }
+            : null,
+          metrics: [
+            {
+              label: 'Heart Rate Range',
+              value: formatHeartRate(
+                metrics?.heartRateMin ?? null,
+                metrics?.heartRateMax ?? null,
+              ),
+              href: '/settings/heart-rate',
+            },
+            {
+              label: 'Run Threshold Pace',
+              value: formatPace(metrics?.runPaceSecondsPerKm ?? null, '/km'),
+              href: '/settings/run-pace',
+            },
+            {
+              label: 'Cycling Threshold Power (FTP)',
+              value:
+                metrics?.cyclingFtp !== null && metrics?.cyclingFtp !== undefined
+                  ? `${metrics.cyclingFtp} W`
+                  : 'Not set',
+              href: '/settings/cycling-ftp',
+            },
+            {
+              label: 'Swim Threshold Pace',
+              value: formatPace(metrics?.swimPaceSecondsPer100m ?? null, '/100m'),
+              href: '/settings/swim-pace',
+            },
+          ],
+          preferences: [
+            {
+              label: 'Distance Units',
+              value: formatUnits(state.status === 'ready' ? state.user.units : 'metric'),
+              href: '/settings/distance-units',
+            },
+            {
+              label: 'Pool Size',
+              value: preferences ? formatPoolSize(preferences.poolSize) : 'Not set',
+              href: '/settings/pool-size',
+            },
+            {
+              label: 'Availability',
+              value: 'Preferred days',
+              href: '/settings/availability',
+            },
+          ],
+          integrations: [
+            connectionRow('Garmin Connect', integrations?.garmin.connected, '/settings/garmin'),
+            connectionRow('Strava', integrations?.strava.connected, '/settings/strava'),
+            connectionRow('Wahoo', false),
+            connectionRow('Zwift', false),
+            connectionRow('Apple Watch', false),
+            {
+              ...connectionRow(
+                'Calendar',
+                integrations?.calendar.connected,
+                '/settings/calendar-sync',
+              ),
+              caption: formatSynced(integrations?.calendar.lastSyncedAt ?? null),
+            },
+          ],
+          subscription: [
+            {
+              label: 'Manage Subscription',
+              value: 'Manage your subscription',
+              href: '/settings/subscription',
+            },
+            {
+              label: 'Redeem Referral Code',
+              value: 'Enter a code',
+              href: '/settings/redeem-code',
+            },
+          ],
+          notifications: [
+            { label: 'Push Notifications', value: 'Enabled', emphasis: true },
+          ],
+          alternateUi,
+          onAlternateUiChange: setAlternateUi,
+          signOutPending: pending,
+          onSignOut: handleSignOut,
+          error,
+          danger: {
+            open: dangerOpen,
+            onToggle: () => setDangerOpen(open => !open),
+            resetPending,
+            deletePending,
+            onReset: confirmResetPlans,
+            onDelete: confirmDeleteAccount,
+            error: dangerError,
+          },
+          socials: SOCIALS.map(social => ({
+            id: social.id,
+            label: social.label,
+            url: social.url,
+            gradient: social.gradient,
+            icon: social.icon,
+          })),
+          onOpen: open,
+          onNavigate: (href: Href) => router.push(href),
+        }}
+      />
+    );
   }
 
   return (
@@ -382,6 +543,18 @@ export default function ProfileScreen() {
           statusAccent={Accents.endurance}
           statusDot
           chevron={false}
+        />
+      </SettingsGroup>
+
+      {/* The same switch the alternate build carries, worded identically, so it
+          is never ambiguous which way the setting points from either side. */}
+      <SettingsGroup label="Appearance">
+        <SettingsRow
+          icon="wand.and.stars"
+          iconAccent={Accents.commitment}
+          title="Alternate UI"
+          subtitle="Dashboard and Profile rebuilt on gluestack-ui"
+          toggle={{ value: alternateUi, onValueChange: setAlternateUi }}
         />
       </SettingsGroup>
 

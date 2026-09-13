@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { AltPlanScreen } from '@/components/alt/plan-screen';
 import { ProgressRing } from '@/components/progress-ring';
 import { SectionScreen } from '@/components/section-screen';
 import { ThemedText } from '@/components/themed-text';
@@ -27,6 +28,7 @@ import {
   type PlannedItemProps,
 } from '@/presenters/plan-week-presenter';
 import { ActivityWindowProvider, useActivityWindow } from '@/providers/activities-provider';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import { SessionsProvider, useSessions } from '@/providers/sessions-provider';
 import { useTraining, type PlanModel } from '@/providers/training-provider';
 import { services } from '@/services/container';
@@ -94,6 +96,7 @@ function PlanWeekView({
   const theme = useTheme();
   const { width } = useWindowDimensions();
 
+  const { alternateUi, ready: preferencesReady } = useDevicePreferences();
   const { state: sessionState } = useSessions();
   const { state: activityState } = useActivityWindow();
   const { plans } = useTraining();
@@ -230,12 +233,59 @@ function PlanWeekView({
     return { planned: formatDurationWords(plannedSeconds), done: formatDurationWords(doneSeconds) };
   }, [sessionState, activityState]);
 
+  /* Held rather than rendered-then-swapped — see the other tabs at this point.
+     Declared after every hook above, so the hook order never changes. */
+  if (!preferencesReady) {
+    return null;
+  }
+
   return (
     <GestureDetector gesture={pan}>
       {/* The whole week slides, stepper included: the week is the unit that
           moves, and leaving the controls behind would read as the content
-          changing under them rather than the week changing. */}
+          changing under them rather than the week changing.
+
+          Both builds render inside this, so the swipe is one implementation
+          rather than two that have to be kept agreeing. */}
       <Animated.View style={[styles.container, sliding]}>
+        {alternateUi ? (
+          <AltPlanScreen
+            model={{
+              planLabel: currentPlan ? `${currentPlan.name.split(' ')[0]} plan` : '',
+              phaseLabel: currentPlan?.phase ? `${currentPlan.phase.split(' ')[0]} phase` : '',
+              weekLabel: `Week ${weekIndex !== null ? weekIndex + 1 : '\u2014'}`,
+              weeksLabel: `of ${currentPlan?.weeks ?? '\u2014'}`,
+              monthLabel: sections[0]?.meta ?? '',
+              canGoBack,
+              canGoForward,
+              onStep: commit,
+              volumes: summaries.map(discipline => ({
+                id: discipline.id,
+                icon: discipline.icon,
+                accent: discipline.accent,
+                done: discipline.done,
+                planned: discipline.planned,
+                progress: discipline.progress,
+              })),
+              total,
+              days: (sections[0]?.data ?? []).map(day => ({
+                id: day.id,
+                weekday: day.weekday.toUpperCase(),
+                day: day.day,
+                items: day.items.map(item => ({
+                  id: item.id,
+                  title: item.title,
+                  icon: item.icon,
+                  accent: item.accent,
+                  target: item.target,
+                  status: item.status,
+                  commitment: item.commitment,
+                  actual: item.actual,
+                })),
+              })),
+            }}
+          />
+        ) : (
         <SectionScreen
           sections={sections}
       keyExtractor={day => day.id}
@@ -374,6 +424,7 @@ function PlanWeekView({
         </View>
       }>
         </SectionScreen>
+        )}
       </Animated.View>
     </GestureDetector>
   );

@@ -3,9 +3,12 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import '@/global.css';
-
 import { Platform } from 'react-native';
+
+/* Below `react-native`, and deliberately: this pulls in react-native-css's
+   runtime, which reads `Dimensions` at module scope and needs React Native
+   initialised first. `app/_layout.tsx` says more. */
+import '@/global.css';
 
 export const Colors = {
   light: {
