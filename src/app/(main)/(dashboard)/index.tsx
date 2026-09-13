@@ -192,6 +192,7 @@ function DashboardBody() {
                   totalMinutes: card.totalMinutes,
                   tickEvery: card.tickEvery,
                   coach: card.coach,
+                  note: card.note,
                 };
               }),
             };
