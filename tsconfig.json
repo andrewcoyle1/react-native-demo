@@ -17,7 +17,8 @@
     // layout/shadow/transform property off ViewStyle. skipLibCheck hides the
     // cause and surfaces ~350 bogus errors in our code instead. Pin TS to RN's
     // legacy hand-written types until upstream regenerates them.
-    "customConditions": ["react-native-legacy-deep-imports", "react-native"]
+    "customConditions": ["react-native-legacy-deep-imports", "react-native"],
+    "types": ["jest"]
   },
   "include": [
     "**/*.ts",

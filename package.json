@@ -43,14 +43,20 @@
     "react-native-worklets": "0.12.2"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "^0.87.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~58.0.1",
     "jpeg-js": "^0.4.4",
     "postcss": "^8.5.28",
     "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",
+    "test-renderer": "^1.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -69,7 +75,9 @@
     "device:android": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:android --device --variant release",
     "backdrop:variants": "node scripts/make-backdrop-variants.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\"",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "private": true,
   "overrides": {
@@ -77,5 +85,18 @@
   },
   "resolutions": {
     "lightningcss": "1.30.1"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|mixpanel-react-native|@react-native-firebase/.*)"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/server/"
+    ]
   }
 }
