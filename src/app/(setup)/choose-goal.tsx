@@ -12,6 +12,7 @@ import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useOnboardingFlow, type TrainingGoal } from '@/providers/onboarding-flow-provider';
 
 import { stepProgress } from './flow-order';
+import { useCompleteSetupStep } from './use-step-tracking';
 
 const Goals: { key: TrainingGoal; title: string; description: string; icon: React.ReactNode }[] = [
   {
@@ -37,9 +38,11 @@ const Goals: { key: TrainingGoal; title: string; description: string; icon: Reac
 export default function ChooseGoalScreen() {
   useScreenTracking('Choose goal');
   const { update } = useOnboardingFlow();
+  const completeStep = useCompleteSetupStep();
 
   function choose(goal: TrainingGoal) {
     update({ goal });
+    completeStep();
     router.push('/ability-swim');
   }
 

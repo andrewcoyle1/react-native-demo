@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthButton } from './auth-button';
 import { ThemedText } from './themed-text';
 
+import { useCompleteSetupStep } from '@/app/(setup)/use-step-tracking';
 import { ActivePlanAccent } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -59,6 +60,18 @@ export function OnboardingStep({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
+  /*
+   * Tracking lives here rather than in each of the twenty-six screens, so the
+   * funnel cannot quietly lose a step to someone forgetting to wire one up.
+   *
+   * The import reaches into `(setup)`, which components do not usually do. It
+   * is allowed because this component is not general: it is the shell of that
+   * one flow and nothing else uses it, so the dependency already exists in
+   * every direction but the import graph. The four screens that advance on a
+   * card tap instead of a Next button call the same hook themselves.
+   */
+  const completeStep = useCompleteSetupStep();
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <ScrollView
@@ -81,10 +94,7 @@ export function OnboardingStep({
           <View style={styles.trackWrap} pointerEvents="none">
             <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
               <View
-                style={[
-                  styles.fill,
-                  { width: `${Math.max(0, Math.min(1, progress)) * 100}%` },
-                ]}
+                style={[styles.fill, { width: `${Math.max(0, Math.min(1, progress)) * 100}%` }]}
               />
             </View>
           </View>
@@ -104,7 +114,10 @@ export function OnboardingStep({
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <AuthButton
             title={nextLabel}
-            onPress={onNext}
+            onPress={() => {
+              completeStep();
+              onNext();
+            }}
             disabled={nextDisabled}
             busy={nextBusy}
           />

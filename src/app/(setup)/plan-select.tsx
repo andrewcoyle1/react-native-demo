@@ -14,13 +14,16 @@ import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 
 import { stepProgress } from './flow-order';
+import { useCompleteSetupStep } from './use-step-tracking';
 
 export default function PlanSelectScreen() {
   useScreenTracking('Plan select');
   const { answers, update } = useOnboardingFlow();
+  const completeStep = useCompleteSetupStep();
 
   function choose(key: (typeof PlanDistances)[number]['key']) {
     update({ planDistance: key });
+    completeStep();
     router.push(key === 'middle' ? '/find-race' : '/ability-swim');
   }
 

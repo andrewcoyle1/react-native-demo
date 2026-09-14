@@ -22,14 +22,18 @@ import { formatPace } from '@/domain/format';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/providers/auth-provider';
-import { useOnboardingFlow, type Gender, type OnboardingAnswers } from '@/providers/onboarding-flow-provider';
+import {
+  useOnboardingFlow,
+  type Gender,
+  type OnboardingAnswers,
+} from '@/providers/onboarding-flow-provider';
 import { useUser, type UserSex } from '@/providers/user-provider';
 import { Weekdays, type Weekday } from '@/components/onboarding/day-grid';
 import type { OnboardingDraft } from '@/services/onboarding';
 import { services } from '@/services/container';
-import { reportError } from '@/services/telemetry';
+import { reportError, trackEvent } from '@/services/telemetry';
 
-import { stepProgress } from './flow-order';
+import { NoRaceFlow, RaceFlow, stepProgress } from './flow-order';
 
 const PLAN_ARTWORK = 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800';
 
@@ -41,7 +45,8 @@ function ageFrom(dob: { day: number; month: number; year: number } | null): numb
   const now = new Date();
   let age = now.getFullYear() - dob.year;
   const hasHadBirthdayThisYear =
-    now.getMonth() + 1 > dob.month || (now.getMonth() + 1 === dob.month && now.getDate() >= dob.day);
+    now.getMonth() + 1 > dob.month ||
+    (now.getMonth() + 1 === dob.month && now.getDate() >= dob.day);
   if (!hasHadBirthdayThisYear) age -= 1;
   return age;
 }
@@ -71,7 +76,15 @@ function weeklyHoursFrom(band: string | null): number {
 }
 
 /** 0 = Sunday, matching `ScheduleDTO`; the flow's own list runs Monday-first. */
-const WEEKDAY_INDEX: Record<Weekday, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+const WEEKDAY_INDEX: Record<Weekday, number> = {
+  SUN: 0,
+  MON: 1,
+  TUE: 2,
+  WED: 3,
+  THU: 4,
+  FRI: 5,
+  SAT: 6,
+};
 
 /**
  * The flow collects which days the athlete is free, not minutes per day, so
@@ -91,8 +104,18 @@ function availableMinutesFrom(answers: OnboardingAnswers): number[] {
 }
 
 const CATALOG_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 /**
@@ -147,7 +170,9 @@ function metricsFrom(answers: OnboardingAnswers): OnboardingDraft['metrics'] {
   return {
     heightCm: answers.heightCm,
     weightKg: answers.weightKg,
-    ...(answers.heartRateUnknown ? {} : { heartRateMin: answers.heartRateMin, heartRateMax: answers.heartRateMax }),
+    ...(answers.heartRateUnknown
+      ? {}
+      : { heartRateMin: answers.heartRateMin, heartRateMax: answers.heartRateMax }),
     ...(answers.cyclingFtpUnknown ? {} : { cyclingFtp: answers.cyclingFtp }),
     ...(answers.runPaceUnknown ? {} : { runPaceSecondsPerKm: answers.runPaceSecondsPerKm }),
     ...(answers.swimPaceUnknown ? {} : { swimPaceSecondsPer100m: answers.swimPaceSecondsPer100m }),
@@ -189,13 +214,24 @@ export default function PlanOverviewScreen() {
     setError(null);
     try {
       await services.onboarding.complete(user.uid, draftFrom(answers));
+      /*
+       * After the write, not before: the funnel's last step is "the plan was
+       * created", and an event fired on the tap would also count everyone whose
+       * request then failed.
+       */
+      trackEvent('onboarding_completed', {
+        flow: answers.hasRace ? 'race' : 'no_race',
+        step_count: (answers.hasRace ? RaceFlow : NoRaceFlow).length,
+      });
       // The profile flipping from `absent` to `ready` is what flips the root
       // gate, exactly as signing in flips it off `(onboarding)` — but unlike
       // `create()`, this write did not go through `UserProvider`, so it has
       // no reason yet to know the fetch it's holding is stale.
       refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Something went wrong. Please try again.');
+      setError(
+        caught instanceof Error ? caught.message : 'Something went wrong. Please try again.',
+      );
       reportError(caught, 'onboarding: complete');
     } finally {
       setBusy(false);
@@ -248,10 +284,19 @@ export default function PlanOverviewScreen() {
           {answers.heightCm}cm, {answers.weightKg}kg
         </ThemedText>
 
-        <SummaryRow label="Heart rate range" value={`${answers.heartRateMin} - ${answers.heartRateMax} bpm`} />
-        <SummaryRow label="Run threshold pace" value={`${formatPace(answers.runPaceSecondsPerKm)}/km`} />
+        <SummaryRow
+          label="Heart rate range"
+          value={`${answers.heartRateMin} - ${answers.heartRateMax} bpm`}
+        />
+        <SummaryRow
+          label="Run threshold pace"
+          value={`${formatPace(answers.runPaceSecondsPerKm)}/km`}
+        />
         <SummaryRow label="Cycling threshold power (FTP)" value={`${answers.cyclingFtp}W`} />
-        <SummaryRow label="Swim threshold pace" value={`${formatPace(answers.swimPaceSecondsPer100m)}/100m`} />
+        <SummaryRow
+          label="Swim threshold pace"
+          value={`${formatPace(answers.swimPaceSecondsPer100m)}/100m`}
+        />
         <SummaryRow label="Current training volume" value={answers.weeklyHoursBand ?? '—'} />
       </View>
 
@@ -264,12 +309,25 @@ export default function PlanOverviewScreen() {
   );
 }
 
-function Stat({ icon, value, unit, sub }: { icon: 'figure.pool.swim' | 'bicycle' | 'figure.run'; value: string; unit: string; sub: string }) {
+function Stat({
+  icon,
+  value,
+  unit,
+  sub,
+}: {
+  icon: 'figure.pool.swim' | 'bicycle' | 'figure.run';
+  value: string;
+  unit: string;
+  sub: string;
+}) {
   return (
     <View style={styles.stat}>
       <Icon name={icon} size={14} tintColor="#FFFFFF" />
       <ThemedText style={styles.statValue}>
-        {value} <ThemedText themeColor="textSecondary" style={styles.statUnit}>{unit}</ThemedText>
+        {value}{' '}
+        <ThemedText themeColor="textSecondary" style={styles.statUnit}>
+          {unit}
+        </ThemedText>
       </ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.statSub}>
         {sub}

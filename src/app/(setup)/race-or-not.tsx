@@ -24,14 +24,19 @@ import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 import { reportError } from '@/services/telemetry';
 
 import { stepProgress } from './flow-order';
+import { useCompleteSetupStep } from './use-step-tracking';
 
 export default function RaceOrNotScreen() {
   useScreenTracking('Race or not');
   const { update } = useOnboardingFlow();
   const { signOut } = useAuth();
+  const completeStep = useCompleteSetupStep();
 
   function choose(hasRace: boolean) {
     update({ hasRace });
+    // Passed explicitly: `update` has not re-rendered yet, so the hook would
+    // still read the previous, unanswered value.
+    completeStep({ hasRace });
     router.push(hasRace ? '/plan-select' : '/choose-goal');
   }
 
