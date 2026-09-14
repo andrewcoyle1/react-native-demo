@@ -194,20 +194,6 @@ function RootNavigator() {
             }}
           />
 
-          {/* The profile's settings modals, as one group. Registered here
-              rather than inside the Profile tab so they cover the floating tab
-              bar; `app/settings/_layout.tsx` says more about why. */}
-          <Stack.Screen
-            name="settings"
-            options={{
-              /* `none` for the same reason as `modal` above. */
-              presentation: 'transparentModal',
-              animation: 'none',
-              headerShown: false,
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-
           {/* The SwiftUI `.sheet` equivalent: a form sheet that rests at
               detents. `sheetAllowedDetents` is this API's
               `.presentationDetents`. */}
@@ -223,6 +209,35 @@ function RootNavigator() {
                  status bar, not resting at a half height. */
               sheetAllowedDetents: [0.94],
               sheetGrabberVisible: true,
+            }}
+          />
+        </Stack.Protected>
+
+        {/* The profile's settings modals, as one group. Registered here
+            rather than inside the Profile tab so they cover the floating tab
+            bar; `app/settings/_layout.tsx` says more about why.
+
+            Guarded on the athlete being signed in and nothing more — NOT on
+            `!needsSetup`, which is where this used to sit and which made the
+            app unusable for anyone new. `settings/analytics` is the consent
+            prompt, and `(setup)/_layout` raises it on mount by design. A
+            screen behind a false guard is not removed in expo-router 58, it
+            renders as a redirect to `redirectTo` — so during setup the prompt
+            pushed a route that bounced straight back to `/race-or-not`, the
+            setup layout remounted, raised the prompt again, and pushed
+            `/race-or-not` on top of itself without end.
+
+            Anything under `settings` is reached only by an explicit push, so
+            widening the guard opens nothing the athlete can stumble into. */}
+        <Stack.Protected guard={!!user} redirectTo={landing}>
+          <Stack.Screen
+            name="settings"
+            options={{
+              /* `none` for the same reason as `modal` above. */
+              presentation: 'transparentModal',
+              animation: 'none',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
             }}
           />
         </Stack.Protected>

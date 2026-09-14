@@ -114,6 +114,25 @@ row exists). The device copy decides behaviour; the server copy is the Article
 ePrivacy the gated act is storing identifiers on the device, so a new device is
 a new question.
 
+## A guarded route is a redirect, not a missing one
+
+In expo-router 58 a screen behind a false `Stack.Protected` guard is **not
+removed** — it renders as a redirect to `redirectTo`. So pushing a guarded-off
+route does not fail, and does not no-op: it navigates somewhere else.
+
+That cost a day. `settings` sat inside the root's `!!user && !needsSetup` guard
+while `(setup)/_layout` raised the consent prompt by pushing
+`/settings/analytics` on mount. For a brand-new athlete the guard was false, so
+the push redirected to `redirectTo` — `/race-or-not`, the setup flow's own
+landing screen — which remounted the setup layout, which raised the prompt
+again. `/race-or-not` stacked on itself until the app was unusable, and the
+consent screen was never reachable.
+
+`settings` is therefore guarded on `!!user` alone. Before pushing a route from a
+layout effect, check which guard the target sits behind and whether that guard
+is true from where the push happens. `__tests__/consent-prompt-route-test.tsx`
+holds this, and fails if the guard narrows again.
+
 ## Measuring the funnel
 
 `setup_step_completed` is forward-only, which `screen_viewed` is not — the latter
