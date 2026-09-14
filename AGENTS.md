@@ -9,6 +9,13 @@ separate seams — `AnalyticsService` and `CrashService` in
 `src/services/telemetry/telemetry-service.ts` — and the composition root
 (`src/services/container.ts`) decides which implementations are used.
 
+The facade reads `telemetry/registry.ts`, never the container: the container
+imports every implementation and several of those import the facade back, which
+closed an import cycle. `createServices` pushes its choice into the registry as
+it builds. The registry defaults to the mocks, so `[telemetry:mock]` appearing
+outside the mock environment means something called the facade before the
+container was built.
+
 **Never import a vendor SDK in a screen or provider.** Call the facade:
 
 ```ts
@@ -171,3 +178,30 @@ separate claims.
 Check the bundle URL in that log first: a dev client pointed at a different Metro
 port will happily serve a stale bundle and every conclusion drawn from it is
 worthless.
+
+# Composition root
+
+`createServices(env)` in `src/services/container.ts` builds the dependencies for
+an environment and returns them. It is a **function, not a constant** — as a
+constant the environment was fixed at import time, there was one container per
+process, and nothing below it could be built over fakes without mocking the
+module. `createServices('mock')` gives a full mock container with no env vars
+and no Firebase.
+
+`_layout.tsx` calls it once in a `useMemo` and passes the result down through
+`ServicesProvider`. Read it with `useServices()`; there is no module-level
+`services` export any more, and nothing should reintroduce one. Providers still
+take the service they need as a prop — a provider that reaches for a global
+cannot be mounted twice with different backing.
+
+Two things that will bite:
+
+- **`mixpanelToken` and `mixpanelServerUrl` must stay read from
+  `config/environment.ts`**, not derived from the `env` argument. Metro inlines
+  `EXPO_PUBLIC_*` by substituting the literal source text at bundle time, so a
+  value reached through a variable is never substituted and reads as undefined.
+- The container is memoised on mount, so **editing `container.ts` needs a full
+  reload**, not Fast Refresh.
+
+Several mock services hold module-level `Map`/`Set` state. Harmless with one
+container; a trap the day two exist in one process.
