@@ -32,6 +32,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { useApplyAnalyticsConsent } from '@/hooks/use-analytics-consent';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { DevicePreferencesProvider } from '@/providers/device-preferences';
 import { NotesProvider } from '@/providers/notes-provider';
@@ -81,6 +82,12 @@ export default function RootLayout() {
 function RootNavigator() {
   const { user, initializing } = useAuth();
   const { state: profile } = useUser();
+
+  /*
+   * Applied here rather than inside `(main)`: signing out has to turn tracking
+   * off too, and `(main)` is unmounted by then.
+   */
+  useApplyAnalyticsConsent();
 
   /*
    * Render nothing until both auth *and*, for a signed-in user, the profile

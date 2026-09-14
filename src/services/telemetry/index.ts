@@ -2,24 +2,43 @@
  * Telemetry facade.
  *
  * Screens and providers call these functions; the composition root decides which
- * implementation is behind them. Implementations must never import this file —
+ * implementations are behind them. Implementations must never import this file —
  * that would close an import cycle.
+ *
+ * Analytics and crash reporting are two different vendors behind here now
+ * (Mixpanel and Crashlytics), which is precisely what this facade exists to
+ * hide: no call site changed when they split.
  */
 import { services } from '@/services/container';
 
-export const trackScreenView = (screenName: string) => services.telemetry.trackScreenView(screenName);
+export const trackScreenView = (screenName: string) =>
+  services.analytics.trackScreenView(screenName);
 
 export const trackEvent = (name: string, params?: Record<string, unknown>) =>
-  services.telemetry.trackEvent(name, params);
+  services.analytics.trackEvent(name, params);
 
-export const breadcrumb = (message: string) => services.telemetry.breadcrumb(message);
+export const breadcrumb = (message: string) => services.crash.breadcrumb(message);
 
 export const reportError = (error: unknown, context?: string) =>
-  services.telemetry.reportError(error, context);
+  services.crash.reportError(error, context);
 
-export const identifyUser = (uid: string | null) => services.telemetry.identifyUser(uid);
+/** One call, both vendors: analytics needs the identity, so does the crash report. */
+export const identifyUser = (uid: string | null) => {
+  services.analytics.identifyUser(uid);
+  services.crash.identifyUser(uid);
+};
 
-/** Diagnostic reads, used by the Diagnostics screen. */
-export const telemetry = () => services.telemetry;
+/** Profile attributes for the signed-in athlete. */
+export const setUserProperties = (properties: Record<string, unknown>) =>
+  services.analytics.setUserProperties(properties);
 
-export type { AppInfo, TelemetryService } from './telemetry-service';
+/**
+ * Analytics consent. Analytics is off until this is called with `true`.
+ * Crash reporting is unaffected: it is not behavioural tracking.
+ */
+export const setAnalyticsConsent = (granted: boolean) => services.analytics.setConsent(granted);
+
+/** Diagnostic reads. */
+export const crashReporter = () => services.crash;
+
+export type { AnalyticsService, AppInfo, CrashService } from './telemetry-service';

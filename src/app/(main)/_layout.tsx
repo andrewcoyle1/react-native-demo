@@ -15,10 +15,18 @@ import { View, StyleSheet } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { AppHeader } from '@/components/app-header';
+import { useAnalyticsConsentPrompt } from '@/hooks/use-analytics-consent';
 import { TrainingProvider } from '@/providers/training-provider';
 import { services } from '@/services/container';
 
 export default function MainLayout() {
+  /*
+   * The prompt's other home. `(setup)` asks everyone going through
+   * personalisation; this catches the athlete who already has a profile and so
+   * never passes through it — a reinstall, or a second account on the handset.
+   */
+  useAnalyticsConsentPrompt();
+
   return (
     <TrainingProvider service={services.training}>
       <View style={styles.container}>

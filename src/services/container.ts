@@ -5,7 +5,7 @@
  * `_layout.tsx` injects these into the providers, so the wiring stays visible
  * rather than hidden behind defaults.
  */
-import { isApi, isMock } from '@/config/environment';
+import { isApi, isMock, mixpanelToken } from '@/config/environment';
 import { apiActivitiesService } from '@/providers/activities-provider/services/api-activities-service';
 import { firebaseActivitiesService } from '@/providers/activities-provider/services/firebase-activities-service';
 import { mockActivitiesService } from '@/providers/activities-provider/services/mock-activities-service';
@@ -21,6 +21,10 @@ import { apiOnboardingService } from '@/services/onboarding/api-onboarding-servi
 import { firebaseOnboardingService } from '@/services/onboarding/firebase-onboarding-service';
 import { mockOnboardingService } from '@/services/onboarding/mock-onboarding-service';
 import type { OnboardingService } from '@/services/onboarding/onboarding-service';
+import { apiConsentService } from '@/services/consent/api-consent-service';
+import type { ConsentService } from '@/services/consent/consent-service';
+import { firebaseConsentService } from '@/services/consent/firebase-consent-service';
+import { mockConsentService } from '@/services/consent/mock-consent-service';
 import { apiSettingsService } from '@/providers/settings-provider/services/api-settings-service';
 import { mockSettingsService } from '@/providers/settings-provider/services/mock-settings-service';
 import type { SettingsService } from '@/providers/settings-provider/services/settings-service';
@@ -36,13 +40,17 @@ import { apiUserService } from '@/providers/user-provider/services/api-user-serv
 import { firebaseUserService } from '@/providers/user-provider/services/firebase-user-service';
 import { mockUserService } from '@/providers/user-provider/services/mock-user-service';
 import type { UserService } from '@/providers/user-provider/services/user-service';
-import { createFirebaseTelemetryService } from '@/services/telemetry/firebase-telemetry-service';
-import { mockTelemetryService } from '@/services/telemetry/mock-telemetry-service';
+import { createFirebaseCrashService } from '@/services/telemetry/firebase-crash-service';
+import { createMixpanelAnalyticsService } from '@/services/telemetry/mixpanel-analytics-service';
+import {
+  mockAnalyticsService,
+  mockCrashService,
+} from '@/services/telemetry/mock-telemetry-services';
 import { apiTrendsService } from '@/providers/trends-provider/services/api-trends-service';
 import { firebaseTrendsService } from '@/providers/trends-provider/services/firebase-trends-service';
 import { mockTrendsService } from '@/providers/trends-provider/services/mock-trends-service';
 import type { TrendsService } from '@/providers/trends-provider/services/trends-service';
-import type { TelemetryService } from '@/services/telemetry/telemetry-service';
+import type { AnalyticsService, CrashService } from '@/services/telemetry/telemetry-service';
 
 export type Services = {
   activities: ActivitiesService;
@@ -51,10 +59,12 @@ export type Services = {
   onboarding: OnboardingService;
   sessions: SessionsService;
   settings: SettingsService;
+  consent: ConsentService;
   training: TrainingService;
   trends: TrendsService;
   user: UserService;
-  telemetry: TelemetryService;
+  analytics: AnalyticsService;
+  crash: CrashService;
 };
 
 /*
@@ -70,10 +80,12 @@ export const services: Services = isMock
       onboarding: mockOnboardingService,
       sessions: mockSessionsService,
       settings: mockSettingsService,
+      consent: mockConsentService,
       training: mockTrainingService,
       trends: mockTrendsService,
       user: mockUserService,
-      telemetry: mockTelemetryService,
+      analytics: mockAnalyticsService,
+      crash: mockCrashService,
     }
   : {
       activities: isApi ? apiActivitiesService : firebaseActivitiesService,
@@ -84,8 +96,14 @@ export const services: Services = isMock
       /* Firebase never had threshold figures, so it shares the mock
          implementation rather than getting an empty one of its own. */
       settings: isApi ? apiSettingsService : mockSettingsService,
+      consent: isApi ? apiConsentService : firebaseConsentService,
       training: isApi ? apiTrainingService : firebaseTrainingService,
       trends: isApi ? apiTrendsService : firebaseTrendsService,
       user: isApi ? apiUserService : firebaseUserService,
-      telemetry: createFirebaseTelemetryService(),
+      /* No token configured means no `.env.local`: log to the console rather
+         than fail on launch. */
+      analytics: mixpanelToken
+        ? createMixpanelAnalyticsService(mixpanelToken)
+        : mockAnalyticsService,
+      crash: createFirebaseCrashService(),
     };
