@@ -48,6 +48,7 @@
     "eslint-config-expo": "~58.0.0",
     "jpeg-js": "^0.4.4",
     "postcss": "^8.5.28",
+    "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3"
   },
@@ -65,7 +66,9 @@
     "start:vps": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo start --clear",
     "device:ios": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:ios --device --configuration Release",
     "device:android": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:android --device --variant release",
-    "backdrop:variants": "node scripts/make-backdrop-variants.mjs"
+    "backdrop:variants": "node scripts/make-backdrop-variants.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\""
   },
   "private": true,
   "overrides": {
