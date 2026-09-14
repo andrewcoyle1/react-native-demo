@@ -61,6 +61,19 @@ function toSessionDTO(row: SessionRow): SessionDTO {
     segments: row.segments ?? [],
     chartSeconds: row.chart_seconds,
     tickEveryMinutes: row.tick_every_minutes,
+    /*
+     * Not stored yet. The detail sheet's step tree, chart bands, intensity and
+     * export targets were modelled on the client first; there are no columns
+     * behind them, so the API serves a session with no written-out workout
+     * rather than pretending to one. A migration adding them is what turns
+     * these from empty into real, and until then only the `mock` environment
+     * shows the step list.
+     */
+    bands: [],
+    sets: [],
+    intensity: null,
+    estimateBasis: null,
+    connections: [],
     completion: row.completed_at
       ? {
           completedAt: row.completed_at.toISOString(),
