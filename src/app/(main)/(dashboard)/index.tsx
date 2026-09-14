@@ -214,6 +214,7 @@ function DashboardBody() {
       renderItem={session => (
         <WorkoutCard
           {...toWorkoutCardProps(session, 'metric')}
+          onPress={() => router.push(`/session/${session.id}`)}
           onMenuPress={() => router.push('/sheet')}
         />
       )}

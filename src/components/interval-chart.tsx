@@ -14,6 +14,22 @@ import { ThemedText } from './themed-text';
 
 import { Spacing, Zones } from '@/constants/theme';
 
+/**
+ * A labelled span across the top of the chart — the WU / DRL / MAIN / SKL / SPD
+ * / WD structure a swim session is read in.
+ *
+ * Drawn as a header strip with a dashed rule down each boundary, so the bars
+ * below can be attributed to a part of the workout without reading the step
+ * list. Empty for the many sessions that are one continuous effort.
+ */
+export type IntervalBand = {
+  label: string;
+  startMinute: number;
+  durationMinutes: number;
+  /** Tints the label and the band's ground. */
+  color: string;
+};
+
 export type IntervalSegment = {
   /** Minutes from the start of the session. */
   startMinute: number;
@@ -28,6 +44,8 @@ export type IntervalSegment = {
 
 type IntervalChartProps = {
   segments: IntervalSegment[];
+  /** Labelled spans over the plot. Omit for a session read as one block. */
+  bands?: IntervalBand[];
   /** Length of the session, which fixes the axis regardless of the last effort. */
   totalMinutes: number;
   /** Tallest possible bar, in points. */
@@ -62,6 +80,7 @@ function Hatching() {
 
 export function IntervalChart({
   segments,
+  bands = [],
   totalMinutes,
   height = 64,
   tickEvery = 10,
@@ -78,7 +97,47 @@ export function IntervalChart({
 
   return (
     <View style={style}>
+      {bands.length > 0 ? (
+        <View style={styles.bands}>
+          {bands.map(band => (
+            <View
+              key={`${band.label}-${band.startMinute}`}
+              style={[
+                styles.band,
+                {
+                  left: `${(band.startMinute / total) * 100}%`,
+                  width: `${(band.durationMinutes / total) * 100}%`,
+                  borderColor: band.color,
+                },
+              ]}>
+              {/* Truncated rather than wrapped: a narrow band is still worth a
+                  ground and a rule even when its name will not fit. */}
+              <ThemedText numberOfLines={1} style={[styles.bandLabel, { color: band.color }]}>
+                {band.label.toUpperCase()}
+              </ThemedText>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={[styles.plot, { height }]}>
+        {/* The band boundaries continue down through the bars, which is what
+            makes a bar legible as belonging to the set above it. Drawn first so
+            the bars sit over them. */}
+        {bands.map(band => (
+          <View
+            key={`rule-${band.label}-${band.startMinute}`}
+            pointerEvents="none"
+            style={[
+              styles.bandRule,
+              {
+                left: `${(band.startMinute / total) * 100}%`,
+                borderColor: band.color,
+              },
+            ]}
+          />
+        ))}
+
         {segments.map((segment, index) => (
           <View
             key={index}
@@ -112,6 +171,37 @@ export function IntervalChart({
 }
 
 const styles = StyleSheet.create({
+  bands: {
+    position: 'relative',
+    height: 16,
+    marginBottom: Spacing.one,
+  },
+  band: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    /* A rule on the leading edge only, so adjacent bands share one line
+       between them rather than drawing two against each other. */
+    borderLeftWidth: 1,
+    borderStyle: 'dashed',
+    paddingLeft: 3,
+    justifyContent: 'center',
+  },
+  bandLabel: {
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+  },
+  bandRule: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    borderLeftWidth: 1,
+    borderStyle: 'dashed',
+    /* Well back: this is a registration mark for the bars, not a gridline
+       competing with them. */
+    opacity: 0.3,
+  },
   plot: {
     /* The positioning context every bar's percentage `left` resolves against. */
     position: 'relative',

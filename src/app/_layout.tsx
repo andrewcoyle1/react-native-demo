@@ -194,6 +194,22 @@ function RootNavigator() {
             }}
           />
 
+          {/* The workout detail sheet. A form sheet like `sheet` below, but
+              taller and dismissible by drag alone — it is a place to read
+              rather than a notice to acknowledge, so it carries no header and
+              no confirm button. Registered here rather than inside `(main)`
+              so it covers the floating tab bar; `session/_layout.tsx` says
+              more. */}
+          <Stack.Screen
+            name="session"
+            options={{
+              presentation: 'formSheet',
+              headerShown: false,
+              sheetAllowedDetents: [0.96],
+              sheetGrabberVisible: true,
+            }}
+          />
+
           {/* The SwiftUI `.sheet` equivalent: a form sheet that rests at
               detents. `sheetAllowedDetents` is this API's
               `.presentationDetents`. */}
