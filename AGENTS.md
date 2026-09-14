@@ -205,3 +205,35 @@ Two things that will bite:
 
 Several mock services hold module-level `Map`/`Set` state. Harmless with one
 container; a trap the day two exist in one process.
+
+# Tests
+
+Two suites, two runners, deliberately separate:
+
+- **Client** — `npm test` (Jest, `jest-expo` preset, `__tests__/`).
+- **Server** — `cd server && npm test` (node:test against a real Postgres via
+  `docker compose up -d`). Jest ignores `server/`.
+
+`jest.setup.ts` stubs the Firebase and Mixpanel SDKs. Not because tests want
+fake vendors, but because the container imports every implementation in order to
+choose between them and Firebase touches the native layer as it loads. Keep the
+stubs inert: anything that needs behaviour should be tested against the mock
+services instead, which is what they are for.
+
+Build dependencies with `createServices('mock')` and wrap the component under
+test in `ServicesProvider`. Do not reach for `jest.mock` on the container.
+
+Toolchain gotchas that cost time once:
+
+- `@testing-library/react-native` v14 needs the **`test-renderer`** package — a
+  peer dependency, and the React 19 replacement for `react-test-renderer`.
+- Its `render` is **async**. Without the await the component never runs and
+  every assertion reads `undefined`, which looks like a broken hook.
+- `jest.mock` factories are hoisted above the file, so a fixture they close over
+  must be named `mock*` or Jest refuses it.
+- Installing anything here needs `--legacy-peer-deps`, from the pre-existing
+  `@react-native-firebase/analytics` conflict.
+
+A test is worth having if it fails when the behaviour regresses. The consent
+suite was checked that way — by putting the original bug back and confirming
+four of the eight go red.
