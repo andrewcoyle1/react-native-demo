@@ -50,6 +50,7 @@ import { apiTrendsService } from '@/providers/trends-provider/services/api-trend
 import { firebaseTrendsService } from '@/providers/trends-provider/services/firebase-trends-service';
 import { mockTrendsService } from '@/providers/trends-provider/services/mock-trends-service';
 import type { TrendsService } from '@/providers/trends-provider/services/trends-service';
+import { setTelemetryServices } from '@/services/telemetry/registry';
 import type { AnalyticsService, CrashService } from '@/services/telemetry/telemetry-service';
 
 export type Services = {
@@ -107,3 +108,12 @@ export const services: Services = isMock
         : mockAnalyticsService,
       crash: createFirebaseCrashService(),
     };
+
+/*
+ * Hand the two telemetry implementations to the registry the facade reads.
+ *
+ * The facade cannot read this file — it imports every implementation, and
+ * several of those import the facade back — so the root pushes its choice down
+ * instead of the facade pulling it up. See `telemetry/registry.ts`.
+ */
+setTelemetryServices({ analytics: services.analytics, crash: services.crash });
