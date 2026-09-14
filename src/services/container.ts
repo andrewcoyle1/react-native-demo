@@ -2,8 +2,9 @@
  * Composition root.
  *
  * The single place where an environment is turned into concrete dependencies.
- * `_layout.tsx` injects these into the providers, so the wiring stays visible
- * rather than hidden behind defaults.
+ * `_layout.tsx` calls `createServices` once and passes the result down through
+ * `ServicesProvider`, so the wiring stays visible rather than hidden behind
+ * defaults — and nothing here runs merely because a file was imported.
  */
 import { environment, mixpanelToken, type AppEnvironment } from '@/config/environment';
 import { apiActivitiesService } from '@/providers/activities-provider/services/api-activities-service';
@@ -145,11 +146,3 @@ export function createServices(env: AppEnvironment = environment): Services {
 
   return built;
 }
-
-/**
- * The app's container.
- *
- * Temporary. `_layout.tsx` will build its own and pass it down, at which point
- * this disappears and with it the last import-time construction.
- */
-export const services: Services = createServices();

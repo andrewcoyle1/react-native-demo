@@ -30,7 +30,7 @@ import {
 import { useUser, type UserSex } from '@/providers/user-provider';
 import { Weekdays, type Weekday } from '@/components/onboarding/day-grid';
 import type { OnboardingDraft } from '@/services/onboarding';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
 
 import { NoRaceFlow, RaceFlow, stepProgress } from './flow-order';
@@ -204,6 +204,7 @@ export default function PlanOverviewScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const race = answers.raceId ? RaceCatalog.find(r => r.id === answers.raceId) : null;
+  const services = useServices();
   const age = ageFrom(answers.dateOfBirth);
 
   async function finish() {

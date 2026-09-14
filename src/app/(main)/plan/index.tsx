@@ -31,7 +31,7 @@ import { ActivityWindowProvider, useActivityWindow } from '@/providers/activitie
 import { useDevicePreferences } from '@/providers/device-preferences';
 import { SessionsProvider, useSessions } from '@/providers/sessions-provider';
 import { useTraining, type PlanModel } from '@/providers/training-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 /** How far a week travels as it leaves, as a fraction of the screen width. */
 const TravelFraction = 0.28;
@@ -72,6 +72,7 @@ function weekIndexOf(plan: PlanModel | null, weekStart: DateKey): number | null 
  * could not see the state that changes.
  */
 export default function PlanScreen() {
+  const services = useServices();
   useScreenTracking('Plan');
 
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));

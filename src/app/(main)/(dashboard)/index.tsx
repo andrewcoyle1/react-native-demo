@@ -24,7 +24,7 @@ import { useDevicePreferences } from '@/providers/device-preferences';
 import { useSessions, type SessionModel } from '@/providers/sessions-provider';
 import { useTraining } from '@/providers/training-provider';
 import { TrendsProvider, useTrends } from '@/providers/trends-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 /** Monday-to-Sunday around today, in the athlete's own local calendar. */
 function currentWeekWindow(): DateRange {
@@ -37,6 +37,7 @@ function currentWeekWindow(): DateRange {
 }
 
 export default function DashboardScreen() {
+  const services = useServices();
   const window = useMemo(() => currentWeekWindow(), []);
 
   return (

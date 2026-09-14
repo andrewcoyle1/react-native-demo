@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -38,7 +39,8 @@ import { DevicePreferencesProvider } from '@/providers/device-preferences';
 import { NotesProvider } from '@/providers/notes-provider';
 import { SettingsProvider } from '@/providers/settings-provider';
 import { UserProvider, useUser } from '@/providers/user-provider';
-import { services } from '@/services/container';
+import { ServicesProvider, useServices } from '@/providers/services-provider';
+import { createServices } from '@/services/container';
 
 // Runs once on import, before any component renders. Keeps the native splash on
 // screen instead of letting it disappear the instant the app launches.
@@ -47,30 +49,56 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
+  /*
+   * The one place the container is built.
+   *
+   * `useMemo` with no dependencies rather than a module constant: building it
+   * here is what makes the environment an argument instead of something fixed
+   * when the first import ran. Note for development — because it is memoised on
+   * mount, editing `container.ts` needs a full reload, not Fast Refresh.
+   */
+  const services = useMemo(() => createServices(), []);
+
   return (
     /* Required by react-native-gesture-handler v2 for any GestureDetector below
        it — the Plan tab's week swipe is the first of them. */
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {/* Outside AuthProvider on purpose: these belong to the install, not to
-            the athlete, so signing out must not reset them. */}
-        <DevicePreferencesProvider>
-          <AuthProvider service={services.auth}>
-            {/* Below AuthProvider: both read the signed-in uid from it. */}
-            <UserProvider service={services.user}>
-              {/* Above the navigator rather than inside `(main)`: the profile's
-                  settings modals are root-level routes, so a provider mounted
-                  below this point would not reach them. */}
-              <SettingsProvider service={services.settings}>
-                <NotesProvider service={services.notes}>
-                  <RootNavigator />
-                </NotesProvider>
-              </SettingsProvider>
-            </UserProvider>
-          </AuthProvider>
-        </DevicePreferencesProvider>
+        <ServicesProvider services={services}>
+          {/* Outside AuthProvider on purpose: these belong to the install, not
+              to the athlete, so signing out must not reset them. */}
+          <DevicePreferencesProvider>
+            <AppProviders />
+          </DevicePreferencesProvider>
+        </ServicesProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * The account-scoped providers.
+ *
+ * Split from `RootLayout` only because a component cannot read a context it
+ * renders itself — the services have to come from above this point.
+ */
+function AppProviders() {
+  const services = useServices();
+
+  return (
+    <AuthProvider service={services.auth}>
+      {/* Below AuthProvider: both read the signed-in uid from it. */}
+      <UserProvider service={services.user}>
+        {/* Above the navigator rather than inside `(main)`: the profile's
+            settings modals are root-level routes, so a provider mounted below
+            this point would not reach them. */}
+        <SettingsProvider service={services.settings}>
+          <NotesProvider service={services.notes}>
+            <RootNavigator />
+          </NotesProvider>
+        </SettingsProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }
 

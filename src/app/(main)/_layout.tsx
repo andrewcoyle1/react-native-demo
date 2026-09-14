@@ -17,9 +17,10 @@ import AppTabs from '@/components/app-tabs';
 import { AppHeader } from '@/components/app-header';
 import { useAnalyticsConsentPrompt } from '@/hooks/use-analytics-consent';
 import { TrainingProvider } from '@/providers/training-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 export default function MainLayout() {
+  const services = useServices();
   /*
    * The prompt's other home. `(setup)` asks everyone going through
    * personalisation; this catches the athlete who already has a profile and so

@@ -17,7 +17,7 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 import { useDevicePreferences, type AnalyticsConsent } from '@/providers/device-preferences';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 import { reportError, setAnalyticsConsent } from '@/services/telemetry';
 
 export type AnalyticsConsentValue = {
@@ -31,6 +31,7 @@ export type AnalyticsConsentValue = {
 
 export function useAnalyticsConsent(): AnalyticsConsentValue {
   const { user, initializing } = useAuth();
+  const services = useServices();
   const {
     ready: preferencesReady,
     analyticsConsent,
