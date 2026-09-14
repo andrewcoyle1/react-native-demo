@@ -5,7 +5,7 @@
  * `_layout.tsx` injects these into the providers, so the wiring stays visible
  * rather than hidden behind defaults.
  */
-import { isApi, isMock, mixpanelToken } from '@/config/environment';
+import { environment, mixpanelToken, type AppEnvironment } from '@/config/environment';
 import { apiActivitiesService } from '@/providers/activities-provider/services/api-activities-service';
 import { firebaseActivitiesService } from '@/providers/activities-provider/services/firebase-activities-service';
 import { mockActivitiesService } from '@/providers/activities-provider/services/mock-activities-service';
@@ -68,52 +68,88 @@ export type Services = {
   crash: CrashService;
 };
 
-/*
+/**
+ * Builds the dependencies for an environment.
+ *
+ * A function, not a constant, and that is the point. As a constant the
+ * environment was fixed at *import* time: one container per process, chosen by
+ * whatever `process.env` held, with no way to ask for another. Nothing below
+ * this file could be exercised against fakes without mocking the module, which
+ * is why the four-environment switch below has never been run except by
+ * launching the app four times.
+ *
+ * It also means the vendors are constructed when this is *called* rather than
+ * when it is imported — `createFirebaseCrashService()` enables Crashlytics
+ * collection and `createMixpanelAnalyticsService()` calls `init()`, and those
+ * now happen once, at a point the caller chose.
+ *
  * Three backends now. `api` is being built out one slice at a time, so it takes
  * its own auth service and keeps Firebase for everything not yet ported —
  * which is what lets the app stay runnable throughout the move.
  */
-export const services: Services = isMock
-  ? {
-      activities: mockActivitiesService,
-      auth: mockAuthService,
-      notes: mockNotesService,
-      onboarding: mockOnboardingService,
-      sessions: mockSessionsService,
-      settings: mockSettingsService,
-      consent: mockConsentService,
-      training: mockTrainingService,
-      trends: mockTrendsService,
-      user: mockUserService,
-      analytics: mockAnalyticsService,
-      crash: mockCrashService,
-    }
-  : {
-      activities: isApi ? apiActivitiesService : firebaseActivitiesService,
-      auth: isApi ? apiAuthService : firebaseAuthService,
-      notes: firebaseNotesService,
-      onboarding: isApi ? apiOnboardingService : firebaseOnboardingService,
-      sessions: isApi ? apiSessionsService : firebaseSessionsService,
-      /* Firebase never had threshold figures, so it shares the mock
-         implementation rather than getting an empty one of its own. */
-      settings: isApi ? apiSettingsService : mockSettingsService,
-      consent: isApi ? apiConsentService : firebaseConsentService,
-      training: isApi ? apiTrainingService : firebaseTrainingService,
-      trends: isApi ? apiTrendsService : firebaseTrendsService,
-      user: isApi ? apiUserService : firebaseUserService,
-      /* No token configured means no `.env.local`: log to the console rather
-         than fail on launch. */
-      analytics: mixpanelToken
-        ? createMixpanelAnalyticsService(mixpanelToken)
-        : mockAnalyticsService,
-      crash: createFirebaseCrashService(),
-    };
+export function createServices(env: AppEnvironment = environment): Services {
+  const mock = env === 'mock';
+  const api = env === 'api';
 
-/*
- * Hand the two telemetry implementations to the registry the facade reads.
+  const built: Services = mock
+    ? {
+        activities: mockActivitiesService,
+        auth: mockAuthService,
+        notes: mockNotesService,
+        onboarding: mockOnboardingService,
+        sessions: mockSessionsService,
+        settings: mockSettingsService,
+        consent: mockConsentService,
+        training: mockTrainingService,
+        trends: mockTrendsService,
+        user: mockUserService,
+        analytics: mockAnalyticsService,
+        crash: mockCrashService,
+      }
+    : {
+        activities: api ? apiActivitiesService : firebaseActivitiesService,
+        auth: api ? apiAuthService : firebaseAuthService,
+        notes: firebaseNotesService,
+        onboarding: api ? apiOnboardingService : firebaseOnboardingService,
+        sessions: api ? apiSessionsService : firebaseSessionsService,
+        /* Firebase never had threshold figures, so it shares the mock
+           implementation rather than getting an empty one of its own. */
+        settings: api ? apiSettingsService : mockSettingsService,
+        consent: api ? apiConsentService : firebaseConsentService,
+        training: api ? apiTrainingService : firebaseTrainingService,
+        trends: api ? apiTrendsService : firebaseTrendsService,
+        user: api ? apiUserService : firebaseUserService,
+        /*
+         * `mixpanelToken` is read from the module, not derived from `env`, and
+         * has to be: Metro inlines `EXPO_PUBLIC_*` by substituting the literal
+         * source text at bundle time, so a token looked up from a variable is
+         * never substituted and reads as undefined at runtime.
+         *
+         * No token configured means no `.env.local`: log to the console rather
+         * than fail on launch.
+         */
+        analytics: mixpanelToken
+          ? createMixpanelAnalyticsService(mixpanelToken)
+          : mockAnalyticsService,
+        crash: createFirebaseCrashService(),
+      };
+
+  /*
+   * Hand the two telemetry implementations to the registry the facade reads.
+   *
+   * The facade cannot read this file — it imports every implementation, and
+   * several of those import the facade back — so the root pushes its choice
+   * down instead of the facade pulling it up. See `telemetry/registry.ts`.
+   */
+  setTelemetryServices({ analytics: built.analytics, crash: built.crash });
+
+  return built;
+}
+
+/**
+ * The app's container.
  *
- * The facade cannot read this file — it imports every implementation, and
- * several of those import the facade back — so the root pushes its choice down
- * instead of the facade pulling it up. See `telemetry/registry.ts`.
+ * Temporary. `_layout.tsx` will build its own and pass it down, at which point
+ * this disappears and with it the last import-time construction.
  */
-setTelemetryServices({ analytics: services.analytics, crash: services.crash });
+export const services: Services = createServices();
