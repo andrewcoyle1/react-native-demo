@@ -95,6 +95,34 @@ export async function updateProfile(
   );
 }
 
+/**
+ * Records an analytics consent decision.
+ *
+ * On `users` rather than `profiles` because this is answered at the top of
+ * onboarding, before a profile row exists. The timestamp is written in the same
+ * statement as the answer: Article 7(1) asks us to demonstrate that consent was
+ * given, and an answer with no time attached demonstrates very little.
+ */
+export async function updateAnalyticsConsent(
+  userId: string,
+  consent: 'granted' | 'denied',
+  db: Queryable,
+): Promise<{ analyticsConsent: string; analyticsConsentAt: string }> {
+  const { rows } = await db.query<{ analytics_consent: string; analytics_consent_at: Date }>(
+    `update users
+        set analytics_consent = $2,
+            analytics_consent_at = now()
+      where id = $1
+      returning analytics_consent, analytics_consent_at`,
+    [userId, consent],
+  );
+  const row = rows[0]!;
+  return {
+    analyticsConsent: row.analytics_consent,
+    analyticsConsentAt: row.analytics_consent_at.toISOString(),
+  };
+}
+
 /** Lives on `users`, so it is set separately from the rest of the profile. */
 export async function updateTimezone(
   userId: string,

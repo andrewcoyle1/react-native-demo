@@ -110,3 +110,17 @@ export async function updateMetrics(
     return q.toMetricsDTO(await q.patchMetrics(userId, changes, db));
   });
 }
+
+/**
+ * Stores the athlete's analytics consent decision.
+ *
+ * Deliberately not gated on a profile existing: consent is asked before setup,
+ * so requiring one would make it impossible to answer at the moment it is put.
+ * Re-answering overwrites, which is what revoking and re-granting are.
+ */
+export async function recordAnalyticsConsent(
+  userId: string,
+  consent: 'granted' | 'denied',
+): Promise<{ analyticsConsent: string; analyticsConsentAt: string }> {
+  return q.updateAnalyticsConsent(userId, consent, pool);
+}
