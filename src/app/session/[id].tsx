@@ -14,6 +14,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { AltSessionDetailScreen } from '@/components/alt/session-detail-screen';
 import { Chip } from '@/components/chip';
 import { CoachNote } from '@/components/coach-note';
 import { ConnectionRow } from '@/components/connection-row';
@@ -34,6 +35,7 @@ import type { UnitSystem } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useSessionDetail, type SessionDetailTab } from '@/hooks/use-session-detail';
 import { useTheme } from '@/hooks/use-theme';
+import { useDevicePreferences } from '@/providers/device-preferences';
 import {
   toActivityMetrics,
   toLapAxis,
@@ -66,9 +68,13 @@ export default function SessionDetailSheet() {
 
   const theme = useTheme();
   const detail = useSessionDetail(id);
+  const { alternateUi, ready: preferencesReady } = useDevicePreferences();
   const { state } = detail;
 
-  if (state.status === 'loading') {
+  /* Held rather than rendered-then-swapped: reading the choice takes a moment,
+     and showing one build for a frame before replacing it with the other reads
+     as a glitch. The other tabs make the same call at the same point. */
+  if (state.status === 'loading' || !preferencesReady) {
     /* Deliberately blank rather than a spinner: the sheet animates in over the
        screen behind it, and a spinner that appears for a moment during that
        animation reads as a stutter. */
@@ -87,8 +93,91 @@ export default function SessionDetailSheet() {
     );
   }
 
+  if (alternateUi) {
+    return (
+      <AltSessionDetailScreen
+        model={toAltModel(detail, state.session, state.activity)}
+      />
+    );
+  }
 
   return <SessionDetailView detail={detail} session={state.session} activity={state.activity} />;
+}
+
+/**
+ * The alternate build's view model.
+ *
+ * Built here rather than inside the component for the reason every other alt
+ * screen is: the route owns the data, and the gluestack build is presentational
+ * all the way down. It reads the same presenters as the standard build, so the
+ * two can differ in how a session looks and never in what it says.
+ */
+function toAltModel(
+  detail: ReturnType<typeof useSessionDetail>,
+  session: SessionModel,
+  activity: ActivityModel | null,
+) {
+  const { units } = detail;
+  const discipline = Disciplines[session.discipline];
+  const charts = activity ? toStreamCharts(activity, units, activity.discipline) : [];
+
+  return {
+    dateLine: toSessionDateLine(session.date),
+    title: session.title,
+    icon: discipline.icon,
+    iconAccent: discipline.accent,
+    completed: session.completion !== null,
+    tab: detail.tab,
+    onTab: detail.setTab,
+    hasCompleted: detail.hasCompleted,
+    onClose: () => router.back(),
+
+    planned: {
+      /* Labels only: the alternate build draws these as neutral badges, so the
+         accent each chip carries here would be read and thrown away. */
+      tags: toSessionTags(session).map(tag => tag.label),
+      metrics: toDetailMetrics(session, units).map(({ label, value, unit }) => ({
+        label,
+        value,
+        unit,
+      })),
+      footnote: toEstimateFootnote(session),
+      segments: toSessionSegments(session),
+      bands: toChartBands(session),
+      totalMinutes: session.chartSeconds !== null ? session.chartSeconds / 60 : 0,
+      tickEvery: session.tickEveryMinutes ?? undefined,
+      coach:
+        session.coachName && session.coachNote
+          ? { name: session.coachName, note: session.coachNote }
+          : null,
+      sets: toWorkoutSets(session, units),
+      connections: toConnectionRows(session.connections).map(({ title, subtitle, accent }) => ({
+        title,
+        subtitle,
+        accent,
+      })),
+    },
+
+    recorded: activity
+      ? {
+          title: activity.title,
+          route: activity.route,
+          metrics: toActivityMetrics(activity, units).map(({ label, value, unit }) => ({
+            label,
+            value,
+            unit,
+          })),
+          rpe: activity.review?.rpe ?? null,
+          laps: toLapBars(activity.laps),
+          lapAxis: activity.laps.length > 1 ? toLapAxis(activity.laps) : [],
+          lapUnit: units === 'imperial' ? '/mi' : '/km',
+          lapCount: activity.laps.length,
+          charts,
+          onUncomplete: () => void detail.uncomplete(),
+          busy: detail.busy,
+        }
+      : null,
+  };
 }
 
 function SessionDetailView({

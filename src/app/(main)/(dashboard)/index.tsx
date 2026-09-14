@@ -179,6 +179,7 @@ function DashboardBody() {
 
                 return {
                   id: session.id,
+                  onPress: () => router.push(`/session/${session.id}`),
                   title: card.title,
                   icon: card.icon,
                   iconAccent: card.iconAccent,

@@ -53,6 +53,15 @@ export type AltVolume = {
 
 export type AltPlanItem = {
   id: string;
+  /**
+   * Opens this session's detail sheet, or `undefined` for a commitment — a
+   * standing gym block is a note to self, with no session behind it to read.
+   *
+   * Required-but-nullable rather than optional, so a caller has to decide.
+   * Optional, it can be left off by accident, and the row silently stops
+   * opening anything — which is exactly what happened to this build's rows.
+   */
+  onPress: (() => void) | undefined;
   title: string;
   icon: SFSymbol;
   accent: string;
@@ -311,48 +320,57 @@ function Day({ day }: { day: AltPlanDay }) {
 
 function Item({ item }: { item: AltPlanItem }) {
   return (
-    <VStack space="xs" className="px-3 py-3">
-      <HStack space="md" className="items-start">
-        <Box
-          className="size-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: `${item.accent}${AccentFillOpacity}` }}>
-          <SymbolIcon name={item.icon} size={20} tintColor={item.accent} />
-        </Box>
+    /* A plain container when there is nothing to open, so a commitment does not
+       announce itself to a screen reader as a button that does nothing. */
+    <Pressable
+      onPress={item.onPress}
+      disabled={!item.onPress}
+      accessibilityRole={item.onPress ? 'button' : undefined}
+      accessibilityLabel={item.onPress ? item.title : undefined}
+      accessibilityHint={item.onPress ? 'Opens the session' : undefined}>
+      <VStack space="xs" className="px-3 py-3">
+        <HStack space="md" className="items-start">
+          <Box
+            className="size-11 items-center justify-center rounded-full"
+            style={{ backgroundColor: `${item.accent}${AccentFillOpacity}` }}>
+            <SymbolIcon name={item.icon} size={20} tintColor={item.accent} />
+          </Box>
 
-        <VStack space="xs" className="flex-1">
-          <HStack space="sm" className="items-start">
-            <Text className="flex-1 text-foreground font-medium">{item.title}</Text>
-            <StatusBadge status={item.status} />
-          </HStack>
+          <VStack space="xs" className="flex-1">
+            <HStack space="sm" className="items-start">
+              <Text className="flex-1 text-foreground font-medium">{item.title}</Text>
+              <StatusBadge status={item.status} />
+            </HStack>
 
-          <Text size="sm" className="text-muted-foreground">
-            {item.target}
-          </Text>
+            <Text size="sm" className="text-muted-foreground">
+              {item.target}
+            </Text>
 
-          {item.commitment ? (
-            <Badge variant="outline" className="self-start">
-              <BadgeText>Commitment</BadgeText>
-            </Badge>
-          ) : null}
+            {item.commitment ? (
+              <Badge variant="outline" className="self-start">
+                <BadgeText>Commitment</BadgeText>
+              </Badge>
+            ) : null}
 
-          {/* What was actually recorded, indented under what was asked for. */}
-          {item.actual ? (
-            <VStack space="xs" className="pt-1">
-              <Text size="xs" style={{ color: Accents.schedule }}>
-                {item.actual.at} · {item.actual.title}
-              </Text>
-              <HStack space="md" className="flex-wrap">
-                {item.actual.stats.map(stat => (
-                  <Text key={stat} size="xs" className="text-muted-foreground">
-                    {stat}
-                  </Text>
-                ))}
-              </HStack>
-            </VStack>
-          ) : null}
-        </VStack>
-      </HStack>
-    </VStack>
+            {/* What was actually recorded, indented under what was asked for. */}
+            {item.actual ? (
+              <VStack space="xs" className="pt-1">
+                <Text size="xs" style={{ color: Accents.schedule }}>
+                  {item.actual.at} · {item.actual.title}
+                </Text>
+                <HStack space="md" className="flex-wrap">
+                  {item.actual.stats.map(stat => (
+                    <Text key={stat} size="xs" className="text-muted-foreground">
+                      {stat}
+                    </Text>
+                  ))}
+                </HStack>
+              </VStack>
+            ) : null}
+          </VStack>
+        </HStack>
+      </VStack>
+    </Pressable>
   );
 }
 

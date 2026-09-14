@@ -276,6 +276,11 @@ function PlanWeekView({
                 day: day.day,
                 items: day.items.map(item => ({
                   id: item.id,
+                  /* Matches the standard build's row: a commitment has no
+                     session behind it, so it gets no handler at all. */
+                  onPress: item.commitment
+                    ? undefined
+                    : () => router.push(`/session/${item.id}`),
                   title: item.title,
                   icon: item.icon,
                   accent: item.accent,

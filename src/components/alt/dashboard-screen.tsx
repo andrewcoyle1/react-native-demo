@@ -99,6 +99,14 @@ export type AltPlan = {
 
 export type AltSession = {
   id: string;
+  /**
+   * Opens this session's detail sheet.
+   *
+   * Per session rather than one callback for the card: the sheet is addressed
+   * by id, and a single shared handler cannot say which row was tapped — which
+   * is how every session here briefly opened the release notes instead.
+   */
+  onPress: () => void;
   title: string;
   icon: SFSymbol;
   iconAccent?: string;
@@ -169,7 +177,7 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
         />
 
         {model.days.map(day => (
-          <DayCard key={day.id} day={day} onSessionPress={model.onOpenSheet} />
+          <DayCard key={day.id} day={day} />
         ))}
 
         {/* An empty week is a real state — a rest week, or a plan that has not
@@ -384,7 +392,7 @@ function ActionRow({
   );
 }
 
-function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => void }) {
+function DayCard({ day }: { day: AltDay }) {
   return (
     <VStack space="sm">
       {/* Day and date on one line, the day itself emphasised: the date is there
@@ -406,7 +414,7 @@ function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => v
                 chip, so the rule reads as separating the titles rather than
                 cutting the card in half. */}
             {index > 0 ? <Divider className="ml-16" /> : null}
-            <SessionRow session={session} onPress={onSessionPress} />
+            <SessionRow session={session} />
           </View>
         ))}
       </Card>
@@ -414,7 +422,7 @@ function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => v
   );
 }
 
-function SessionRow({ session, onPress }: { session: AltSession; onPress: () => void }) {
+function SessionRow({ session }: { session: AltSession }) {
   /* Narrowed once, so the note below and the fallback inside the row agree
      about which of the two they are showing. */
   const note = session.coach && session.note ? { coach: session.coach, body: session.note } : null;
@@ -428,9 +436,10 @@ function SessionRow({ session, onPress }: { session: AltSession; onPress: () => 
        anywhere else opens the session. */
     <View className="px-3 py-3">
       <Pressable
-        onPress={onPress}
+        onPress={session.onPress}
         accessibilityRole="button"
-        accessibilityLabel={session.title}>
+        accessibilityLabel={session.title}
+        accessibilityHint="Opens the session">
         <HStack space="md" className="items-start">
           <IconChip icon={session.icon} accent={session.iconAccent ?? Accents.interval} />
 
