@@ -6,7 +6,15 @@
  * holds. That is deliberate: paging is the thing this slice exists to prove, and
  * a fixture that fits in a single page would never exercise it.
  */
-import type { ActivitiesService, ActivityModel, RoutePointModel } from './activities-service';
+import type {
+  ActivitiesService,
+  ActivityLink,
+  ActivityModel,
+  ActivityReview,
+  LapModel,
+  RoutePointModel,
+  StreamSample,
+} from './activities-service';
 
 import { toDateKey, type ActivitySource, type Discipline } from '@/domain/training';
 import type { Page } from '@/providers/shared/paged-state';
@@ -43,12 +51,120 @@ type ActivityTemplate = {
   route?: RoutePointModel[];
   stats: ActivityModel['stats'];
   sources?: ActivitySource[];
+  sessionId?: string;
+  laps?: LapModel[];
+  samples?: StreamSample[];
+  review?: ActivityReview;
+  links?: ActivityLink[];
 };
 
 const pace = (min: number, sec: number) => min * 60 + sec;
 const duration = (h: number, m: number, s: number) => h * 3600 + m * 60 + s;
 
+/**
+ * The recorded side of the session the detail sheet was designed against.
+ *
+ * Generated rather than typed out: the streams are one sample per 100 m over
+ * nearly seven kilometres, and the shape that matters — an even aerobic run
+ * with four strides late on — is far clearer as the rule that produces it than
+ * as seven hundred literal numbers.
+ */
+const EASY_RUN_METRES = 6900;
+const EASY_RUN_SECONDS = duration(0, 35, 2);
+/** Where the four strides fall, as a fraction of the run. */
+const STRIDE_STARTS = [0.855, 0.885, 0.915, 0.945];
+
+/** Deterministic wobble, so the fixture is the same on every launch. */
+function wobble(seed: number): number {
+  return Math.sin(seed * 12.9898) * 0.5 + Math.sin(seed * 4.1414) * 0.5;
+}
+
+function isStride(fraction: number): boolean {
+  return STRIDE_STARTS.some(start => fraction >= start && fraction < start + 0.018);
+}
+
+function easyRunSamples(): StreamSample[] {
+  const samples: StreamSample[] = [];
+
+  for (let atMetres = 0; atMetres <= EASY_RUN_METRES; atMetres += 100) {
+    const fraction = atMetres / EASY_RUN_METRES;
+    const stride = isStride(fraction);
+    const drift = wobble(atMetres / 100);
+
+    samples.push({
+      atMetres,
+      // Strides are run at close to 3:20/km; the rest hovers around 5:10.
+      paceSecondsPerKm: stride ? pace(3, 22) + drift * 6 : pace(5, 10) + drift * 14,
+      // Heart rate lags the effort and climbs gently over the hour.
+      heartRate: Math.round((stride ? 178 : 158 + fraction * 14) + drift * 4),
+      cadence: Math.round((stride ? 191 : 169 + fraction * 3) + drift * 3),
+    });
+  }
+
+  return samples;
+}
+
+/**
+ * Fifteen laps: six steady kilometres, then the strides and their recoveries
+ * lapped individually, which is why there are more laps than kilometres.
+ */
+function easyRunLaps(): LapModel[] {
+  const steady = Array.from({ length: 6 }, (_, index) => ({
+    index: index + 1,
+    distanceMetres: 1000,
+    durationSeconds: pace(5, 8) + Math.round(wobble(index) * 9),
+  }));
+
+  const strides = STRIDE_STARTS.flatMap((_, index) => [
+    { index: 7 + index * 2, distanceMetres: 115, durationSeconds: 23 },
+    { index: 8 + index * 2, distanceMetres: 160, durationSeconds: 58 },
+  ]);
+
+  const finish = [{ index: 15, distanceMetres: 800, durationSeconds: pace(5, 20) * 0.8 }];
+
+  return [...steady, ...strides, ...finish].map(lap => ({
+    ...lap,
+    durationSeconds: Math.round(lap.durationSeconds),
+    paceSecondsPerKm: Math.round((lap.durationSeconds / lap.distanceMetres) * 1000),
+  }));
+}
+
+/** Normalised shape of the Malahide coast road loop in the design. */
+const EASY_RUN_ROUTE: RoutePointModel[] = [
+  { x: 0.06, y: 0.34 }, { x: 0.1, y: 0.46 }, { x: 0.18, y: 0.55 }, { x: 0.28, y: 0.6 },
+  { x: 0.36, y: 0.72 }, { x: 0.46, y: 0.78 }, { x: 0.56, y: 0.7 }, { x: 0.6, y: 0.55 },
+  { x: 0.58, y: 0.44 }, { x: 0.52, y: 0.4 }, { x: 0.44, y: 0.42 }, { x: 0.36, y: 0.46 },
+  { x: 0.3, y: 0.44 }, { x: 0.4, y: 0.4 }, { x: 0.54, y: 0.38 }, { x: 0.68, y: 0.36 },
+  { x: 0.8, y: 0.32 }, { x: 0.9, y: 0.34 }, { x: 0.96, y: 0.3 },
+];
+
 const RECENT: ActivityTemplate[] = [
+  {
+    id: 'run-easy-strides-activity',
+    daysAgo: 0,
+    at: [9, 4],
+    title: 'Stamina: 35 min Easy Run w 4 × 20s Strides',
+    discipline: 'run',
+    place: 'Malahide, IE',
+    route: EASY_RUN_ROUTE,
+    sessionId: 'run-easy-strides',
+    stats: {
+      distanceMetres: EASY_RUN_METRES,
+      durationSeconds: EASY_RUN_SECONDS,
+      paceSecondsPerKm: pace(5, 4),
+      averageHeartRate: 166,
+      calories: 551,
+      elevationMetres: 30,
+      averageCadence: 171,
+    },
+    laps: easyRunLaps(),
+    samples: easyRunSamples(),
+    review: { rpe: 5, note: null },
+    links: [
+      { provider: 'strava', url: 'https://www.strava.com/activities/0' },
+      { provider: 'garmin', url: 'https://connect.garmin.com/modern/activity/0' },
+    ],
+  },
   {
     id: 'run-intervals',
     daysAgo: 0,
@@ -165,7 +281,11 @@ function realise(template: ActivityTemplate): ActivityModel {
     route: template.route ?? [],
     sources: template.sources ?? ALL_SOURCES,
     stats: template.stats,
-    sessionId: null,
+    sessionId: template.sessionId ?? null,
+    laps: template.laps ?? [],
+    samples: template.samples ?? [],
+    review: template.review ?? null,
+    links: template.links ?? [],
   };
 }
 
@@ -203,6 +323,15 @@ function storeFor(uid: string): ActivityModel[] {
 }
 
 export const mockActivitiesService: ActivitiesService = {
+  async get(uid, activityId) {
+    return new Promise(resolve =>
+      setTimeout(
+        () => resolve(storeFor(uid).find(activity => activity.id === activityId) ?? null),
+        SettleMs,
+      ),
+    );
+  },
+
   subscribe(uid, onActivities, _onError) {
     const timer = setTimeout(() => onActivities(storeFor(uid).slice(0, 20)), 0);
     return () => clearTimeout(timer);

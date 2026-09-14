@@ -9,14 +9,31 @@
  * today; this file passes back whatever it was handed and parses none of it,
  * so the server can change that encoding freely.
  */
-import type { ActivitiesService, ActivityModel, RoutePointModel } from './activities-service';
+import type {
+  ActivitiesService,
+  ActivityModel,
+  LapModel,
+  RoutePointModel,
+} from './activities-service';
 
-import type { ActivityDTO } from '@/domain/wire.ts';
+import type { ActivityDTO, LapDTO } from '@/domain/wire.ts';
 import { api } from '@/services/api/client';
 import type { Page } from '@/providers/shared/paged-state';
 
 /** How many recent activities the freshness read holds. */
 const RECENT_LIMIT = 20;
+
+/**
+ * Pace is derived here rather than carried on the wire: a stored pace that
+ * disagreed with the distance and duration beside it would draw a bar that
+ * contradicts its own label.
+ */
+function toLap(dto: LapDTO): LapModel {
+  return {
+    ...dto,
+    paceSecondsPerKm: Math.round((dto.durationSeconds / dto.distanceMetres) * 1000),
+  };
+}
 
 function toActivity(dto: ActivityDTO): ActivityModel {
   return {
@@ -29,6 +46,12 @@ function toActivity(dto: ActivityDTO): ActivityModel {
     sources: dto.sources,
     stats: dto.stats,
     sessionId: dto.sessionId,
+    /* Omitted by the list endpoint, sent by the detail one. Absent reads as
+       empty rather than as an error: a listed activity is not a broken one. */
+    laps: dto.laps?.map(toLap) ?? [],
+    samples: dto.samples ?? [],
+    review: dto.review ?? null,
+    links: dto.links ?? [],
   };
 }
 
@@ -55,6 +78,10 @@ function fetchOnce(
 }
 
 export const apiActivitiesService: ActivitiesService = {
+  async get(_uid, activityId) {
+    return toActivity(await api.get<ActivityDTO>(`/v1/activities/${activityId}`));
+  },
+
   subscribe(_uid, onActivities, onError) {
     return fetchOnce(
       `/v1/activities?limit=${RECENT_LIMIT}`,

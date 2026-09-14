@@ -10,7 +10,12 @@
  * newly synced activity appears without a pull-to-refresh; `list` walks
  * backwards through the history a page at a time.
  */
-import type { ActivitySource, DateRange, Discipline } from '@/domain/training';
+import type {
+  ActivityProvider,
+  ActivitySource,
+  DateRange,
+  Discipline,
+} from '@/domain/training';
 import type { Page } from '@/providers/shared/paged-state';
 
 /** A point on the route thumbnail, normalised to 0-1 in both axes. */
@@ -27,6 +32,52 @@ export type ActivityStats = {
   paceSecondsPerKm?: number;
   averageHeartRate?: number;
   calories?: number;
+  /** Total ascent. */
+  elevationMetres?: number;
+  /** Steps or pedal strokes per minute. */
+  averageCadence?: number;
+};
+
+/**
+ * One lap, as the watch recorded it. The detail sheet charts these as bars.
+ *
+ * Auto-laps are usually every kilometre, so `distanceMetres` is near-constant
+ * and `durationSeconds` is what varies — but a manual lap can be any length, so
+ * both are carried rather than one being derived.
+ */
+export type LapModel = {
+  /** 1-based, in the order they were recorded. */
+  index: number;
+  distanceMetres: number;
+  durationSeconds: number;
+  paceSecondsPerKm: number;
+};
+
+/**
+ * One sample of the recorded streams.
+ *
+ * Keyed by distance rather than time because the charts are drawn against
+ * distance — the axis reads 1km, 2km, 3km. Every measure is optional: a watch
+ * without a strap records pace and cadence but no heart rate.
+ */
+export type StreamSample = {
+  atMetres: number;
+  paceSecondsPerKm?: number;
+  heartRate?: number;
+  cadence?: number;
+};
+
+/** The athlete's own verdict, recorded after the session. */
+export type ActivityReview = {
+  /** Rate of perceived exertion, 1-10. */
+  rpe: number;
+  note: string | null;
+};
+
+/** Where this activity can also be viewed. */
+export type ActivityLink = {
+  provider: ActivityProvider;
+  url: string;
 };
 
 export type ActivityModel = {
@@ -42,6 +93,16 @@ export type ActivityModel = {
   stats: ActivityStats;
   /** The planned session this was matched to, when it was matched to one. */
   sessionId: string | null;
+  /**
+   * The detail-only fields below are empty on a listed activity and filled by
+   * `get`. The list shows dozens of rows at a time, and a stream is hundreds of
+   * samples: sending them to build a row would cost far more than the row is
+   * worth. A reader that needs them asks for the one activity it is showing.
+   */
+  laps: LapModel[];
+  samples: StreamSample[];
+  review: ActivityReview | null;
+  links: ActivityLink[];
 };
 
 export interface ActivitiesService {
@@ -76,4 +137,13 @@ export interface ActivitiesService {
    * first. A page whose cursor comes back null is the last one.
    */
   list(uid: string, cursor: string | null, pageSize: number): Promise<Page<ActivityModel>>;
+
+  /**
+   * One activity by id, with the detail fields the list omits.
+   *
+   * Resolves to null when there is no such activity — a session can name an
+   * activity that has since been deleted upstream, and the sheet has to show
+   * the planned side rather than fail.
+   */
+  get(uid: string, activityId: string): Promise<ActivityModel | null>;
 }

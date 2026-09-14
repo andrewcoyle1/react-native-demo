@@ -22,9 +22,14 @@
  */
 import type { AuthProvider, OAuthProvider } from './auth.ts';
 import type {
+  ActivityProvider,
   ActivitySource,
+  ConnectionKind,
   Discipline,
+  Intensity,
   Purpose,
+  SetKind,
+  StepZone,
   UnitSystem,
   Zone,
 } from './training.ts';
@@ -163,6 +168,49 @@ export type CompletionDTO = {
   activityId: string | null;
 };
 
+/**
+ * The workout written out. Recursive, because a swim main set is "3 rounds of
+ * (2 x 50m board wag, 2 x 50m freestyle)" and flattening it loses the structure
+ * the athlete counts their way through at the wall.
+ */
+export type WorkoutStepDTO =
+  | { kind: 'repeat'; times: number; children: WorkoutStepDTO[]; rest: StepRestDTO | null }
+  | {
+      kind: 'effort';
+      distanceMetres: number | null;
+      durationSeconds: number | null;
+      name: string;
+      zone: StepZone | null;
+      equipment: string[];
+      hasVideo: boolean;
+      note: string | null;
+      rest: StepRestDTO | null;
+      parts: WorkoutStepDTO[];
+    };
+
+/** A fixed rest, or the athlete's own call. */
+export type StepRestDTO = { seconds: number | null; open: boolean };
+
+export type WorkoutSetDTO = {
+  id: string;
+  kind: SetKind;
+  title: string | null;
+  steps: WorkoutStepDTO[];
+};
+
+/** A labelled span of the chart - the WU / DRL / MAIN bands over a swim. */
+export type ChartBandDTO = {
+  kind: SetKind;
+  startSeconds: number;
+  durationSeconds: number;
+};
+
+export type SessionConnectionDTO = {
+  kind: ConnectionKind;
+  /** Last successful sync, or null when it has never been sent. */
+  syncedAt: Instant | null;
+};
+
 export type SessionDTO = {
   id: string;
   date: DayKey;
@@ -180,6 +228,21 @@ export type SessionDTO = {
    *  to the last effort when a session ends with a long cool-down. */
   chartSeconds: number | null;
   tickEveryMinutes: number | null;
+  /**
+   * The detail sheet's fields, all optional.
+   *
+   * Optional because they were added to this contract after the API was
+   * deployed, and the two deploy independently: a client that dereferences a
+   * field an older server does not send crashes the screen rather than
+   * degrading. A reader must default every one of these, and a server that has
+   * the columns sends them.
+   */
+  bands?: ChartBandDTO[];
+  sets?: WorkoutSetDTO[];
+  intensity?: Intensity | null;
+  /** What the estimates were derived from, shown as a footnote. */
+  estimateBasis?: string | null;
+  connections?: SessionConnectionDTO[];
   completion: CompletionDTO | null;
   coachName: string | null;
   coachNote: string | null;
@@ -297,7 +360,27 @@ export type ActivityStatsDTO = {
   paceSecondsPerKm?: number;
   averageHeartRate?: number;
   calories?: number;
+  elevationMetres?: number;
+  averageCadence?: number;
 };
+
+export type LapDTO = {
+  index: number;
+  distanceMetres: number;
+  durationSeconds: number;
+};
+
+/** One stream sample, keyed by distance because the charts are drawn against it. */
+export type StreamSampleDTO = {
+  atMetres: number;
+  paceSecondsPerKm?: number;
+  heartRate?: number;
+  cadence?: number;
+};
+
+export type ActivityReviewDTO = { rpe: number; note: string | null };
+
+export type ActivityLinkDTO = { provider: ActivityProvider; url: string };
 
 export type ActivityDTO = {
   id: string;
@@ -311,6 +394,15 @@ export type ActivityDTO = {
   sources: ActivitySource[];
   stats: ActivityStatsDTO;
   sessionId: string | null;
+  /**
+   * Detail-only. Absent from a listed activity: a stream is hundreds of samples
+   * and a list is dozens of rows, so these are sent only when one activity is
+   * asked for by id.
+   */
+  laps?: LapDTO[];
+  samples?: StreamSampleDTO[];
+  review?: ActivityReviewDTO | null;
+  links?: ActivityLinkDTO[];
 };
 
 // ─── Pagination ──────────────────────────────────────────────────────────────

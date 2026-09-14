@@ -12,15 +12,22 @@
 import type {
   SegmentModel,
   SessionCompletion,
+  SessionConnection,
   SessionModel,
   SessionsService,
 } from './sessions-service';
 
-import type { SegmentDTO, SessionDTO } from '@/domain/wire.ts';
+import type { SegmentDTO, SessionConnectionDTO, SessionDTO } from '@/domain/wire.ts';
 import { api } from '@/services/api/client';
 import { queuedWrite } from '@/providers/shared/pending-writes';
 
 const toSegment = (dto: SegmentDTO): SegmentModel => ({ ...dto });
+
+/** The one field JSON cannot carry: a sync stamp is an instant, not a string. */
+const toConnection = (dto: SessionConnectionDTO): SessionConnection => ({
+  kind: dto.kind,
+  syncedAt: dto.syncedAt ? new Date(dto.syncedAt) : null,
+});
 
 function toSession(dto: SessionDTO): SessionModel {
   return {
@@ -37,6 +44,21 @@ function toSession(dto: SessionDTO): SessionModel {
     segments: dto.segments.map(toSegment),
     chartSeconds: dto.chartSeconds,
     tickEveryMinutes: dto.tickEveryMinutes,
+    /*
+     * Defaulted, every one of them. These fields were added to the contract
+     * after the API was deployed, and a server that predates them omits them
+     * entirely — so `dto.connections.map(...)` threw "Cannot read property
+     * 'map' of undefined" and took the whole dashboard down with it. The model
+     * keeps them required; absorbing the difference is this converter's job,
+     * which is what it is for.
+     */
+    bands: dto.bands ?? [],
+    /* The step tree crosses unchanged: it holds no dates, so the wire shape and
+       the model shape are the same type in different names. */
+    sets: dto.sets ?? [],
+    intensity: dto.intensity ?? null,
+    estimateBasis: dto.estimateBasis ?? null,
+    connections: (dto.connections ?? []).map(toConnection),
     completion: dto.completion
       ? {
           completedAt: new Date(dto.completion.completedAt),
@@ -49,6 +71,10 @@ function toSession(dto: SessionDTO): SessionModel {
 }
 
 export const apiSessionsService: SessionsService = {
+  async get(_uid, sessionId) {
+    return toSession(await api.get<SessionDTO>(`/v1/sessions/${sessionId}`));
+  },
+
   subscribe(_uid, window, onSessions, onError) {
     const controller = new AbortController();
 
