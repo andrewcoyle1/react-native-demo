@@ -10,6 +10,7 @@
  * athlete's own and is the one thing this service writes.
  */
 import type { DateKey, Discipline } from '@/domain/training';
+import type { RaceDraft } from '@/services/onboarding';
 
 /** Where a plan sits relative to today. */
 export type PlanStatus = 'current' | 'upcoming' | 'complete';
@@ -113,4 +114,18 @@ export interface TrainingService {
    * creates or edits one. Races and recorded activities are untouched.
    */
   resetPlans(uid: string): Promise<void>;
+
+  /**
+   * Adds a plan for an athlete who already has a profile.
+   *
+   * The other exception to "plans are read-only", and a narrow one: it takes a
+   * race or nothing at all, and the backend generates the plan from that and
+   * the athlete's stored schedule. A caller still cannot say what a plan
+   * contains.
+   *
+   * The new plan queues behind whatever is already running rather than
+   * replacing it, so adding a spring race does not throw away the build
+   * under way.
+   */
+  createPlan(uid: string, race: RaceDraft | null): Promise<void>;
 }

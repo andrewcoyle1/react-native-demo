@@ -25,15 +25,24 @@ export type OnboardingDraft = {
     availableMinutes: number[];
     commitments: { label: string; weekday: number; discipline: Discipline | null }[];
   };
-  race?: {
-    name: string;
-    place: string;
-    date: Date;
-    priority: 'A' | 'B' | 'C';
-    targetSeconds: number | null;
-    legs: { discipline: Discipline; distanceMetres: number }[];
-  } | null;
+  race?: RaceDraft | null;
   weeklyHours: number;
+};
+
+/**
+ * A race as the athlete described it, before it has an id.
+ *
+ * Named and exported because adding a plan later takes the same shape: the
+ * Dashboard's "add a plan" flow collects a race and nothing else, so the two
+ * callers would otherwise restate it.
+ */
+export type RaceDraft = {
+  name: string;
+  place: string;
+  date: Date;
+  priority: 'A' | 'B' | 'C';
+  targetSeconds: number | null;
+  legs: { discipline: Discipline; distanceMetres: number }[];
 };
 
 export interface OnboardingService {

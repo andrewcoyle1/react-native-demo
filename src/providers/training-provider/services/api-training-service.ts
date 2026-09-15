@@ -13,6 +13,7 @@ import type {
   TrainingService,
 } from './training-service';
 
+import { toDateKey } from '@/domain/training';
 import type { PlanDTO, RaceDTO, ScheduleDTO } from '@/domain/wire.ts';
 import { ApiError, api } from '@/services/api/client';
 
@@ -114,5 +115,13 @@ export const apiTrainingService: TrainingService = {
 
   async resetPlans() {
     await api.delete('/v1/plans');
+  },
+
+  async createPlan(_uid, race) {
+    await api.post<PlanDTO>('/v1/plans', {
+      // The one field JSON cannot carry: a race date is a calendar day, and
+      // `toISOString` would move an evening race in Dublin to the next day.
+      race: race ? { ...race, date: toDateKey(race.date) } : null,
+    });
   },
 };

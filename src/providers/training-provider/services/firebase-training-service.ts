@@ -163,6 +163,15 @@ function toScheduleModel(data: RawData): ScheduleModel | null {
 }
 
 export const firebaseTrainingService: TrainingService = {
+  /*
+   * Unimplemented, like everything that generates a plan in this backend: the
+   * Firestore build has no plan generator, so there is nothing to add a plan
+   * *with*. `api` is where the flow runs.
+   */
+  async createPlan() {
+    throw new Error('Adding a plan is not supported on the Firestore backend.');
+  },
+
   subscribePlans(uid, onPlans, onError) {
     // Completed plans are excluded at the query: an athlete accumulates them,
     // and no screen shows one.
