@@ -3,9 +3,9 @@
 A triathlon training app. A coached plan, the week ahead, the session in front of
 you, and what you actually did against what was asked.
 
-Expo SDK 58 (preview) and React Native 0.87 over Node and Postgres — 50 screens, four
-interchangeable backends, and a test suite on both sides of the wire. It runs
-with no setup at all:
+Expo SDK 58 (preview) and React Native 0.87 over Node and Postgres — 50 screens,
+three interchangeable backends behind one set of interfaces, and a test suite on
+both sides of the wire. It runs with no setup at all:
 
 ```sh
 npm install --legacy-peer-deps && npm run start:mock
@@ -30,8 +30,9 @@ It cannot run in Expo Go — `@react-native-firebase/*` and `mixpanel-react-nati
 are native modules — so this needs a [development build](https://docs.expo.dev/develop/development-builds/introduction/)
 (`npx expo run:ios`) or the prebuilt one linked above.
 
-Signing in with any email and password works in `mock`. `new@example.com` seeds
-an empty account, so every zero state is reachable without clearing anything.
+Any email and password signs you in. Two addresses behave specially, so the
+awkward states are reachable without clearing anything: `new@example.com` seeds
+an empty account and `fail@example.com` always fails to sign in.
 
 Worth opening:
 
@@ -57,7 +58,7 @@ Worth opening:
 | **Activities**      | Paged history of what was actually done                                                                                                                                                            |
 | **Trends**          | Volume, fitness and fatigue over time                                                                                                                                                              |
 | **Session detail**  | A planned session and its recorded activity as two halves of one sheet — targets, interval chart, coach note, the workout written out step by step, plus the map, laps and pace/HR/cadence streams |
-| **Add a plan**      | The personalisation flow again, minus everything Settings already knows — six screens instead of twenty-five                                                                                       |
+| **Add a plan**      | The personalisation flow again, minus everything Settings already knows — six screens instead of twenty-four                                                                                       |
 | **Settings**        | 13 screens: availability, thresholds, units, integrations, analytics consent                                                                                                                       |
 
 ---
@@ -72,7 +73,8 @@ Being specific about this seemed more useful than implying it is all finished.
 - The API: 18 endpoints, 8 migrations, auth with refresh-token rotation
   (reuse of a consumed token revokes the whole family), 136 tests against a
   real Postgres.
-- The `mock` environment end to end — it is what the screenshots above come from.
+- The `mock` environment end to end. It is the one to look at: it has the
+  richest fixtures, and no other environment has data behind the newer screens.
 - Analytics: a consent gate that actually gates, bound to the athlete rather
   than the handset.
 
@@ -80,9 +82,9 @@ Being specific about this seemed more useful than implying it is all finished.
 
 - **The training engine.** `generateFirstWeek` writes one session per available
   day, rotating run/ride/swim, titled "Getting started". It is a placeholder for
-  the thing your product actually is, and it says so in its own comment. The
-  rich sessions — steps, set bands, coach notes — exist in the `mock` fixtures
-  and have no columns behind them yet.
+  the part that would actually be the product, and says so in its own comment.
+  The rich sessions — steps, set bands, coach notes — exist in the `mock`
+  fixtures and have no columns behind them yet.
 - **Integrations.** Garmin, Strava and Zwift appear in the UI as destinations.
   Nothing syncs.
 - **OAuth.** The wire contract has shapes for it; there is no route and no
@@ -96,9 +98,12 @@ Being specific about this seemed more useful than implying it is all finished.
 
 The parts I would most want to be asked about.
 
-**Four backends behind one seam.** Every feature is an interface —
-`SessionsService`, `TrainingService`, `AnalyticsService` — with a mock, a
-Firestore and an HTTP implementation. `createServices(env)` in
+**Three backends behind one seam.** Every feature is an interface —
+`SessionsService`, `TrainingService`, `UserService` — and most have three
+implementations: an in-memory mock, Firestore, and HTTP against the Node API.
+Not all of them: `NotesService` has no HTTP implementation and `SettingsService`
+no Firestore one, so those two features fall back rather than switch.
+`createServices(env)` in
 `src/services/container.ts` is a function rather than a constant, which is the
 whole point: as a constant the environment was fixed at import time and nothing
 below it could be built over fakes. This is why the app can run with no backend
@@ -121,11 +126,12 @@ athlete is asked again — because they have not answered. This started as a bug
 shipped and found by testing exactly that, and there is a regression test that
 goes red if the binding is removed.
 
-**Analytics that cannot measure itself.** Onboarding completion is measured
-server-side, not in Mixpanel, because consent-gated analytics structurally
-cannot measure the effect of a consent prompt: everyone who declines is absent
-by construction, so moving the prompt earlier makes the funnel look _cleaner_
-while losing more people.
+**Analytics that cannot measure itself.** `onboarding_completed` is tracked,
+but the completion _rate_ is deliberately not computed from it. Consent-gated
+analytics cannot measure the effect of a consent prompt: everyone who declines
+is absent by construction, so moving the prompt earlier makes the funnel look
+_cleaner_ while losing more people. The unbiased denominator is accounts created
+versus `/v1/onboarding/complete` received — server-side, and not built yet.
 
 `AGENTS.md` carries the rest, including several traps that cost real time — the
 Mixpanel consent/identity race, EU data residency silently discarding
@@ -170,5 +176,8 @@ cd server && docker compose up -d && npm run migrate && npm run dev
 npm run start:api
 ```
 
-`dev` and `prod` point at Firebase instead; `api` points at Node and Postgres.
-The app is identical in all four.
+`api` points at Node and Postgres; `dev` and `prod` both point at Firebase and
+differ only in which Mixpanel project they report to and whether Crashlytics is
+on. Every screen is the same in all four, with two exceptions worth knowing:
+notes are read from Firestore even under `api`, and the threshold figures in
+Settings are mock data anywhere but `api`.
