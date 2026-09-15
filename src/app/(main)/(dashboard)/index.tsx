@@ -25,6 +25,7 @@ import { useSessions, type SessionModel } from '@/providers/sessions-provider';
 import { useTraining } from '@/providers/training-provider';
 import { TrendsProvider, useTrends } from '@/providers/trends-provider';
 import { useServices } from '@/providers/services-provider';
+import { useSetupIntent } from '@/providers/setup-intent-provider';
 
 /** Monday-to-Sunday around today, in the athlete's own local calendar. */
 function currentWeekWindow(): DateRange {
@@ -52,9 +53,20 @@ function DashboardBody() {
 
   const { user } = useAuth();
   const { alternateUi, ready: preferencesReady } = useDevicePreferences();
+  const { startAddingPlan } = useSetupIntent();
   const { state, byDate } = useSessions();
   const { plans: planState, raceFor } = useTraining();
   const { state: trends } = useTrends();
+
+  /*
+   * The intent is raised *before* the push, and has to be: `(setup)` is gated
+   * on it, and pushing first would land an athlete who already has a profile
+   * on a screen the gate immediately redirects them out of.
+   */
+  const addPlan = () => {
+    startAddingPlan();
+    router.push('/race-or-not');
+  };
 
   // An empty list while loading or on error: the carousel keeps its "add plan"
   // page, which is what an athlete with no plans should see anyway.
@@ -200,7 +212,7 @@ function DashboardBody() {
             };
           }),
           error: state.status === 'error' ? state.message : null,
-          onAddPlan: () => router.push('/sheet'),
+          onAddPlan: addPlan,
           onUpdateSchedule: () => router.push('/settings/availability'),
           onOpenPlan: () => router.push('/plan'),
         }}
@@ -229,7 +241,7 @@ function DashboardBody() {
           <Carousel
             height={272}
             accessibilityLabel="Dashboard highlights"
-            addPage={<AddPlanCard onPress={() => router.push('/sheet')} />}>
+            addPage={<AddPlanCard onPress={addPlan} />}>
             {/* One card per plan the backend has generated: the current one
                 first, then anything upcoming. The countdowns and week numbers
                 are computed from dates by the presenter, not typed in. */}

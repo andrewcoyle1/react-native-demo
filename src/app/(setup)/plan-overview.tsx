@@ -30,10 +30,12 @@ import {
 import { useUser, type UserSex } from '@/providers/user-provider';
 import { Weekdays, type Weekday } from '@/components/onboarding/day-grid';
 import type { OnboardingDraft } from '@/services/onboarding';
+import { router } from 'expo-router';
 import { useServices } from '@/providers/services-provider';
+import { useSetupIntent } from '@/providers/setup-intent-provider';
 import { reportError, trackEvent } from '@/services/telemetry';
 
-import { NoRaceFlow, RaceFlow, stepProgress } from './flow-order';
+import { orderFor, stepProgress } from './flow-order';
 
 const PLAN_ARTWORK = 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?w=800';
 
@@ -197,7 +199,8 @@ function draftFrom(answers: OnboardingAnswers): OnboardingDraft {
 export default function PlanOverviewScreen() {
   useScreenTracking('Plan overview');
   const theme = useTheme();
-  const { answers } = useOnboardingFlow();
+  const { answers, mode } = useOnboardingFlow();
+  const { stopAddingPlan } = useSetupIntent();
   const { user } = useAuth();
   const { refresh } = useUser();
   const [busy, setBusy] = useState(false);
@@ -214,7 +217,19 @@ export default function PlanOverviewScreen() {
     setBusy(true);
     setError(null);
     try {
-      await services.onboarding.complete(user.uid, draftFrom(answers));
+      if (mode === 'add-plan') {
+        /*
+         * Only the race. The athlete already has a profile, metrics and a
+         * schedule, and `onboarding.complete` would overwrite all three with
+         * whatever this short flow left at its defaults — while creating no
+         * plan at all, since the server refuses to generate a second one
+         * through that route.
+         */
+        await services.training.createPlan(user.uid, raceDraftFrom(answers) ?? null);
+      } else {
+        await services.onboarding.complete(user.uid, draftFrom(answers));
+      }
+
       /*
        * After the write, not before: the funnel's last step is "the plan was
        * created", and an event fired on the tap would also count everyone whose
@@ -222,8 +237,22 @@ export default function PlanOverviewScreen() {
        */
       trackEvent('onboarding_completed', {
         flow: answers.hasRace ? 'race' : 'no_race',
-        step_count: (answers.hasRace ? RaceFlow : NoRaceFlow).length,
+        setup_mode: mode === 'add-plan' ? 'add_plan' : 'onboarding',
+        step_count: orderFor(mode, answers.hasRace).length,
       });
+
+      if (mode === 'add-plan') {
+        /*
+         * Nothing about the profile changed, so there is no `absent` -> `ready`
+         * flip to ride back out. The intent is cleared first: it is what holds
+         * the gate open, and leaving it set would keep `(setup)` reachable
+         * behind the athlete.
+         */
+        stopAddingPlan();
+        router.replace('/');
+        return;
+      }
+
       // The profile flipping from `absent` to `ready` is what flips the root
       // gate, exactly as signing in flips it off `(onboarding)` — but unlike
       // `create()`, this write did not go through `UserProvider`, so it has
@@ -233,7 +262,7 @@ export default function PlanOverviewScreen() {
       setError(
         caught instanceof Error ? caught.message : 'Something went wrong. Please try again.',
       );
-      reportError(caught, 'onboarding: complete');
+      reportError(caught, mode === 'add-plan' ? 'training: createPlan' : 'onboarding: complete');
     } finally {
       setBusy(false);
     }
@@ -243,7 +272,7 @@ export default function PlanOverviewScreen() {
     <OnboardingStep
       title="Your plan overview"
       subtitle="Review your plan details and confirm your training schedule"
-      progress={stepProgress('plan-overview', answers.hasRace)}
+      progress={stepProgress('plan-overview', answers.hasRace, mode)}
       nextLabel="Personalise my plan"
       nextBusy={busy}
       onNext={finish}>

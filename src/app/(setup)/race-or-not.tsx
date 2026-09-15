@@ -28,7 +28,7 @@ import { useCompleteSetupStep } from './use-step-tracking';
 
 export default function RaceOrNotScreen() {
   useScreenTracking('Race or not');
-  const { update } = useOnboardingFlow();
+  const { update, mode } = useOnboardingFlow();
   const { signOut } = useAuth();
   const completeStep = useCompleteSetupStep();
 
@@ -54,7 +54,7 @@ export default function RaceOrNotScreen() {
     <OnboardingStep
       title="Do you have a race in mind?"
       subtitle="Choose your current training focus"
-      progress={stepProgress('race-or-not', null)}
+      progress={stepProgress('race-or-not', null, mode)}
       showNext={false}
       onNext={() => {}}
       onBack={back}>

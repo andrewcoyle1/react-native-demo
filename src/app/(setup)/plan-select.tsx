@@ -18,7 +18,7 @@ import { useCompleteSetupStep } from './use-step-tracking';
 
 export default function PlanSelectScreen() {
   useScreenTracking('Plan select');
-  const { answers, update } = useOnboardingFlow();
+  const { answers, update, mode } = useOnboardingFlow();
   const completeStep = useCompleteSetupStep();
 
   function choose(key: (typeof PlanDistances)[number]['key']) {
@@ -31,7 +31,7 @@ export default function PlanSelectScreen() {
     <OnboardingStep
       title="Choose your triathlon plan"
       subtitle="Choose the right plan for your upcoming race"
-      progress={stepProgress('plan-select', true)}
+      progress={stepProgress('plan-select', true, mode)}
       showNext={false}
       onNext={() => {}}>
       <View style={styles.grid}>

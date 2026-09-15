@@ -24,7 +24,7 @@ const Filters = ['IRONMAN', 'T100', 'Challenge'] as const;
 export default function FindRaceScreen() {
   useScreenTracking('Find race');
   const theme = useTheme();
-  const { update } = useOnboardingFlow();
+  const { update, mode } = useOnboardingFlow();
   const completeStep = useCompleteSetupStep();
 
   const [query, setQuery] = useState('');
@@ -48,7 +48,7 @@ export default function FindRaceScreen() {
   return (
     <OnboardingStep
       title="Find your middle distance race"
-      progress={stepProgress('find-race', true)}
+      progress={stepProgress('find-race', true, mode)}
       showNext={false}
       onNext={() => {}}>
       <TextInput

@@ -40,6 +40,7 @@ import { NotesProvider } from '@/providers/notes-provider';
 import { SettingsProvider } from '@/providers/settings-provider';
 import { UserProvider, useUser } from '@/providers/user-provider';
 import { ServicesProvider, useServices } from '@/providers/services-provider';
+import { SetupIntentProvider, useSetupIntent } from '@/providers/setup-intent-provider';
 import { createServices } from '@/services/container';
 
 // Runs once on import, before any component renders. Keeps the native splash on
@@ -94,7 +95,12 @@ function AppProviders() {
             this point would not reach them. */}
         <SettingsProvider service={services.settings}>
           <NotesProvider service={services.notes}>
-            <RootNavigator />
+            {/* Above the navigator because the gate below reads it: an athlete
+                adding a second plan is, to the gate, a fully onboarded athlete
+                who belongs in the tabs. */}
+            <SetupIntentProvider>
+              <RootNavigator />
+            </SetupIntentProvider>
           </NotesProvider>
         </SettingsProvider>
       </UserProvider>
@@ -110,6 +116,7 @@ function AppProviders() {
 function RootNavigator() {
   const { user, initializing } = useAuth();
   const { state: profile } = useUser();
+  const { addingPlan } = useSetupIntent();
 
   /*
    * Applied here rather than inside `(main)`: signing out has to turn tracking
@@ -262,7 +269,12 @@ function RootNavigator() {
             from "Do you have a race in mind?" through the plan overview. Its
             own screen order and progress bar are `(setup)`'s concern; this
             gate only decides whether the athlete can reach it at all. */}
-        <Stack.Protected guard={needsSetup} redirectTo={landing}>
+        {/* Reachable for two different reasons: an athlete who has no profile
+            yet and must go through it, and an established athlete who chose to
+            add another plan. The second keeps `(main)` mounted alongside — its
+            own guard is still true — so the flow pushes over the tabs and
+            backing out of it returns to the Dashboard. */}
+        <Stack.Protected guard={needsSetup || addingPlan} redirectTo={landing}>
           <Stack.Screen name="(setup)" options={{ animationTypeForReplace: 'push' }} />
         </Stack.Protected>
 

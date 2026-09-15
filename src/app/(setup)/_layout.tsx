@@ -14,12 +14,20 @@
 import { Stack } from 'expo-router';
 
 import { useAnalyticsConsentPrompt } from '@/hooks/use-analytics-consent';
+import { useSetupIntent } from '@/providers/setup-intent-provider';
 
 import { OnboardingFlowProvider } from '@/providers/onboarding-flow-provider';
 
 export const unstable_settings = { anchor: 'race-or-not' };
 
 export default function SetupLayout() {
+  /*
+   * Which flow this is. An athlete adding a second plan walks a much shorter
+   * order, and the progress bar and the funnel both divide by it — mixing the
+   * two would make a six-step flow report as a quarter finished at its end.
+   */
+  const { mode } = useSetupIntent();
+
   /*
    * Asked here, at the top of personalisation, rather than after it.
    *
@@ -34,7 +42,7 @@ export default function SetupLayout() {
   useAnalyticsConsentPrompt();
 
   return (
-    <OnboardingFlowProvider>
+    <OnboardingFlowProvider mode={mode}>
       <Stack screenOptions={{ headerShown: false }} />
     </OnboardingFlowProvider>
   );

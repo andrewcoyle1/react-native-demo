@@ -15,7 +15,7 @@
 import { usePathname } from 'expo-router';
 import { useCallback } from 'react';
 
-import { RaceFlow, NoRaceFlow } from './flow-order';
+import { orderFor } from './flow-order';
 
 import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 import { trackEvent } from '@/services/telemetry';
@@ -28,7 +28,7 @@ import { trackEvent } from '@/services/telemetry';
  */
 export function useCompleteSetupStep(): (override?: { hasRace: boolean }) => void {
   const pathname = usePathname();
-  const { answers } = useOnboardingFlow();
+  const { answers, mode } = useOnboardingFlow();
   const hasRace = answers.hasRace;
 
   return useCallback(
@@ -43,18 +43,25 @@ export function useCompleteSetupStep(): (override?: { hasRace: boolean }) => voi
        * apply yet.
        */
       const flow = decided === null ? undefined : decided ? 'race' : 'no_race';
-      const order: readonly string[] = decided === false ? NoRaceFlow : RaceFlow;
+      const order = orderFor(mode, decided);
       const index = order.indexOf(step);
 
       trackEvent('setup_step_completed', {
         step,
         flow,
+        /*
+         * A first plan and a later one are different funnels through some of
+         * the same screens — one is twenty-four steps and the other six — so a
+         * conversion rate that averages them describes neither. Same reasoning
+         * as `flow` above, one level up.
+         */
+        setup_mode: mode === 'add-plan' ? 'add_plan' : 'onboarding',
         // 1-based: "step 3 of 24" is how the funnel reads, and a 0 here would
         // be indistinguishable from the not-found case beside it.
         step_number: index === -1 ? undefined : index + 1,
         step_count: order.length,
       });
     },
-    [pathname, hasRace],
+    [pathname, hasRace, mode],
   );
 }

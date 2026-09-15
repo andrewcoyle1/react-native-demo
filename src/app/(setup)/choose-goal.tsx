@@ -2,7 +2,6 @@
  * The "no race planned" branch's own question: what the training is for,
  * since there is no event to aim it at.
  */
-import { router } from 'expo-router';
 import { Icon } from '@/components/icon';
 import { StyleSheet, View } from 'react-native';
 
@@ -11,7 +10,7 @@ import { SelectableCard } from '@/components/onboarding/selectable-card';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 import { useOnboardingFlow, type TrainingGoal } from '@/providers/onboarding-flow-provider';
 
-import { stepProgress } from './flow-order';
+import { pushNext, stepProgress } from './flow-order';
 import { useCompleteSetupStep } from './use-step-tracking';
 
 const Goals: { key: TrainingGoal; title: string; description: string; icon: React.ReactNode }[] = [
@@ -37,20 +36,20 @@ const Goals: { key: TrainingGoal; title: string; description: string; icon: Reac
 
 export default function ChooseGoalScreen() {
   useScreenTracking('Choose goal');
-  const { update } = useOnboardingFlow();
+  const { update, mode } = useOnboardingFlow();
   const completeStep = useCompleteSetupStep();
 
   function choose(goal: TrainingGoal) {
     update({ goal });
     completeStep();
-    router.push('/ability-swim');
+    pushNext('choose-goal', mode, false);
   }
 
   return (
     <OnboardingStep
       title="Choose your goal"
       subtitle="Select what you'd like to achieve through your training"
-      progress={stepProgress('choose-goal', false)}
+      progress={stepProgress('choose-goal', false, mode)}
       showNext={false}
       onNext={() => {}}>
       <View style={styles.stack}>
