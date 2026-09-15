@@ -331,15 +331,18 @@ export type OnboardingCompleteRequest = {
     swimPaceSecondsPer100m?: number;
   };
   schedule: { availableMinutes: number[]; commitments: Omit<CommitmentDTO, 'id'>[] };
-  race?: {
-    name: string;
-    place: string;
-    date: DayKey;
-    priority: RaceDTO['priority'];
-    targetSeconds: number | null;
-    legs: RaceLegDTO[];
-  } | null;
+  race?: RaceDraftDTO | null;
   weeklyHours: number;
+};
+
+/** A race as the client describes it before it has an id. */
+export type RaceDraftDTO = {
+  name: string;
+  place: string;
+  date: DayKey;
+  priority: RaceDTO['priority'];
+  targetSeconds: number | null;
+  legs: RaceLegDTO[];
 };
 
 export type OnboardingCompleteResponse = {
