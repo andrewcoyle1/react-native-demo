@@ -587,7 +587,7 @@ export default function ProfileScreen() {
           icon="wand.and.stars"
           iconAccent={Accents.commitment}
           title="Alternate UI"
-          subtitle="Dashboard and Profile rebuilt on gluestack-ui"
+          subtitle="Six screens rebuilt on gluestack-ui"
           toggle={{ value: alternateUi, onValueChange: setAlternateUi }}
         />
       </SettingsGroup>
