@@ -1,6 +1,20 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
+This project is on **SDK 58** (`expo@58.0.0-preview.0`), React Native 0.87,
+React 19.2. Read the docs before writing any code — and read the right ones:
+
+- `https://docs.expo.dev/versions/unversioned/` — "documentation for the next
+  SDK version", which is what 58 still is.
+- `https://docs.expo.dev/versions/v58.0.0/` **does not exist yet** and 404s.
+  Move this link there once 58 ships.
+- The v57 docs describe a *different* SDK on React Native 0.86. This file used
+  to point at them, and every doc check made against it was checking the wrong
+  version.
+
+Being on a preview SDK explains several things that otherwise read as mistakes:
+`npm install` needs `--legacy-peer-deps`, `tsconfig.json` pins
+`customConditions` around React Native 0.87's broken generated types, and
+`expo-router` 58 changed `Stack.Protected` (see below).
 
 # Mixpanel analytics
 
