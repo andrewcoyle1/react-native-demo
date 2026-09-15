@@ -10,9 +10,17 @@
  * Signing in as `new@example.com` seeds nothing, so every empty branch is
  * reachable without a backend.
  */
-import type { SegmentModel, SessionModel, SessionsService } from './sessions-service';
+import type {
+  ChartBand,
+  SegmentModel,
+  SessionModel,
+  SessionsService,
+  StepRest,
+  WorkoutSet,
+  WorkoutStep,
+} from './sessions-service';
 
-import { addDays, toDateKey, type DateKey, type Zone } from '@/domain/training';
+import { addDays, toDateKey, type DateKey, type StepZone, type Zone } from '@/domain/training';
 
 import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
 
@@ -74,6 +82,64 @@ const fromSpeed = (kmPerHour: number) => Math.round((3600 / kmPerHour) * 10) / 1
 /** Seconds per kilometre from a swim pace per 100 m. */
 const fromSwimPace = (min: number, sec: number) => (min * 60 + sec) * 10;
 
+/* ── Workout step builders ─────────────────────────────────────────────────
+ *
+ * The step tree is verbose written out literally, and the swim below is three
+ * levels deep, so these keep the fixture readable as a workout rather than as
+ * a data structure.
+ */
+
+const rest = (seconds: number): StepRest => ({ seconds, open: false });
+const openRest: StepRest = { seconds: null, open: true };
+
+type EffortOptions = {
+  metres?: number;
+  seconds?: number;
+  name: string;
+  zone?: StepZone;
+  equipment?: string[];
+  video?: boolean;
+  note?: string;
+  rest?: StepRest;
+  parts?: WorkoutStep[];
+};
+
+function effort(options: EffortOptions): WorkoutStep {
+  return {
+    kind: 'effort',
+    distanceMetres: options.metres ?? null,
+    durationSeconds: options.seconds ?? null,
+    name: options.name,
+    zone: options.zone ?? null,
+    equipment: options.equipment ?? [],
+    hasVideo: options.video ?? false,
+    note: options.note ?? null,
+    rest: options.rest ?? null,
+    parts: options.parts ?? [],
+  };
+}
+
+function repeat(times: number, children: WorkoutStep[], after?: StepRest): WorkoutStep {
+  return { kind: 'repeat', times, children, rest: after ?? null };
+}
+
+function workoutSet(kind: WorkoutSet['kind'], steps: WorkoutStep[], title?: string): WorkoutSet {
+  return { id: kind, kind, title: title ?? null, steps };
+}
+
+/** A labelled span of the chart, written in minutes like everything else here. */
+function band(kind: ChartBand['kind'], startMinute: number, durationMinutes: number): ChartBand {
+  return {
+    kind,
+    startSeconds: minutes(startMinute),
+    durationSeconds: minutes(durationMinutes),
+  };
+}
+
+/** Sep 13, 17:04 — the "Synced on" stamp in the design, kept date-relative. */
+const syncedRecently = (hoursAgo: number) =>
+  new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+
 /** The recurring gym commitment, which appears on most days and carries no plan. */
 function weightTraining(dayOffset: number, order: number): SessionTemplate {
   return {
@@ -99,6 +165,11 @@ type Optional =
   | 'segments'
   | 'chartSeconds'
   | 'tickEveryMinutes'
+  | 'bands'
+  | 'sets'
+  | 'intensity'
+  | 'estimateBasis'
+  | 'connections'
   | 'coachName'
   | 'coachNote';
 
@@ -106,9 +177,204 @@ type SessionTemplate = Omit<SessionModel, 'date' | 'completion' | Optional> &
   Partial<Pick<SessionModel, Optional>> & {
     dayOffset: number;
     completed?: boolean;
+    /** The recorded activity this session was matched to, for the sheet. */
+    activityId?: string;
   };
 
 const WEEK: SessionTemplate[] = [
+  /*
+   * The three sessions the detail sheet was designed against — one per
+   * discipline, each written out in full so every part of the sheet has real
+   * data behind it: a banded chart, a nested step tree, connections, and for
+   * the run a matched activity so the Completed tab has something to show.
+   */
+  {
+    id: 'run-easy-strides',
+    dayOffset: 0,
+    order: 2,
+    title: '35 min Easy Run w 4 × 20s Strides',
+    discipline: 'run',
+    purpose: 'recovery',
+    completed: true,
+    activityId: 'run-easy-strides-activity',
+    descriptor: 'Easy run',
+    intensity: 'low',
+    estimateBasis: 'your run threshold pace of 4:30/km',
+    targets: {
+      durationSeconds: minutes(35),
+      distanceMetres: 5900,
+      paceSecondsPerKm: pace(5, 59),
+      load: 2.4,
+      estimated: true,
+    },
+    chartSeconds: minutes(35),
+    tickEveryMinutes: 10,
+    segments: [
+      block(0, 30, 0.3, 'easy'),
+      ...reps({ count: 4, firstAt: 30, every: 1.2, duration: 0.34, intensity: 1, zone: 'sprint' }),
+      block(34.4, 0.6, 0.3, 'easy'),
+    ],
+    sets: [
+      workoutSet('warmup', [effort({ seconds: minutes(30), name: 'Easy running', zone: 'z1' })]),
+      workoutSet('speed', [
+        repeat(
+          4,
+          [
+            effort({
+              seconds: 20,
+              name: 'Strides',
+              zone: 'z5',
+              note: 'Gradual acceleration to around 90% of max effort, then decelerate to a stop.',
+              rest: rest(40),
+            }),
+          ],
+          openRest,
+        ),
+      ]),
+      workoutSet('warmdown', [effort({ seconds: minutes(1), name: 'Easy running', zone: 'z1' })]),
+    ],
+    connections: [{ kind: 'garmin', syncedAt: syncedRecently(20) }],
+    coachName: 'Coach Ari',
+    coachNote:
+      "Keep this truly easy and conversational. You should feel like you're holding back the entire time. During the strides, do a gradual acceleration to around 90% of your max effort, and gradually decelerate to a stop/jog. These are designed to wake up your neuromuscular system after a relaxed run, and to remind your legs what quick feels like.",
+  },
+  {
+    id: 'ride-easy',
+    dayOffset: 1,
+    order: 2,
+    title: '45 min Easy Ride',
+    discipline: 'ride',
+    purpose: 'recovery',
+    descriptor: 'Easy ride',
+    intensity: 'low',
+    targets: {
+      durationSeconds: minutes(45),
+      distanceMetres: 16_600,
+      paceSecondsPerKm: fromSpeed(22.1),
+      load: 1.2,
+      estimated: true,
+    },
+    chartSeconds: minutes(45),
+    tickEveryMinutes: 10,
+    segments: [block(0, 45, 0.62, 'ride')],
+    sets: [workoutSet('main', [effort({ seconds: minutes(45), name: 'Easy spinning', zone: 'z1' })])],
+    connections: [
+      { kind: 'garmin', syncedAt: syncedRecently(44) },
+      { kind: 'zwo', syncedAt: null },
+    ],
+    coachName: 'Coach Ari',
+    coachNote:
+      'This ride should be truly easy. You should feel in control and able to hold a conversation the entire session.',
+  },
+  {
+    id: 'swim-wag-board',
+    dayOffset: 2,
+    order: 2,
+    title: 'Wag that Board (a)',
+    discipline: 'swim',
+    purpose: null,
+    focus: ['Rotation', 'Kicking', 'Balance'],
+    equipment: ['Board'],
+    descriptor: null,
+    intensity: 'high',
+    targets: {
+      durationSeconds: minutes(40),
+      distanceMetres: 1700,
+      paceSecondsPerKm: fromSwimPace(1, 45),
+      load: 4.2,
+      estimated: true,
+    },
+    chartSeconds: minutes(40),
+    tickEveryMinutes: 10,
+    bands: [
+      band('warmup', 0, 8),
+      band('drill', 8, 10),
+      band('main', 18, 12),
+      band('skill', 30, 4),
+      band('speed', 34, 3),
+      band('warmdown', 37, 3),
+    ],
+    segments: [
+      block(0, 7, 0.3, 'warmup'),
+      ...reps({ count: 6, firstAt: 8.5, every: 1.5, duration: 0.7, intensity: 0.55, zone: 'easy', drill: true }),
+      ...reps({ count: 10, firstAt: 18.5, every: 1.1, duration: 0.6, intensity: 0.8, zone: 'swim', drill: true }),
+      ...reps({ count: 3, firstAt: 30.5, every: 1.1, duration: 0.5, intensity: 0.5, zone: 'easy' }),
+      ...reps({ count: 2, firstAt: 34.5, every: 1, duration: 0.4, intensity: 1, zone: 'sprint' }),
+      block(37.5, 2.5, 0.35, 'warmup'),
+    ],
+    sets: [
+      workoutSet('warmup', [
+        effort({ metres: 400, name: 'Choice', zone: 'z1', note: 'Take breaks', rest: openRest }),
+      ]),
+      workoutSet('drill', [
+        repeat(2, [
+          effort({
+            metres: 100,
+            name: 'Body Position Kick',
+            zone: 'z1',
+            equipment: ['Board'],
+            video: true,
+            rest: rest(10),
+          }),
+          effort({ metres: 100, name: 'Freestyle', zone: 'z2', rest: rest(10) }),
+        ]),
+        repeat(
+          3,
+          [
+            effort({
+              seconds: 15,
+              name: 'Ball Float to X-Float',
+              video: true,
+              note: 'Ribs rolled to spine, engage glutes to get feet up on X float',
+              rest: rest(10),
+            }),
+          ],
+          openRest,
+        ),
+      ]),
+      workoutSet('main', [
+        repeat(
+          3,
+          [
+            repeat(2, [
+              effort({
+                metres: 50,
+                name: 'Board Wag',
+                zone: 'z2',
+                note: 'Keep most of the board underneath you. Feel the resistance of the water against the board as you drive each shoulder forward.',
+                rest: rest(10),
+              }),
+            ]),
+            repeat(2, [effort({ metres: 50, name: 'Freestyle', zone: 'z2', rest: rest(10) })]),
+          ],
+          openRest,
+        ),
+      ]),
+      workoutSet('skill', [
+        repeat(
+          3,
+          [effort({ seconds: 15, name: 'Ball Float to X-Float', video: true, rest: rest(10) })],
+          openRest,
+        ),
+      ]),
+      workoutSet('speed', [
+        effort({
+          metres: 100,
+          name: 'as',
+          rest: openRest,
+          parts: [
+            effort({ metres: 50, name: 'Freestyle', zone: 'z5' }),
+            effort({ metres: 50, name: 'Freestyle', zone: 'z1' }),
+          ],
+        }),
+      ]),
+      workoutSet('warmdown', [effort({ metres: 200, name: 'Freestyle', zone: 'z1' })]),
+    ],
+    connections: [{ kind: 'garmin', syncedAt: syncedRecently(44) }],
+    coachName: 'Coach Greg',
+    coachNote:
+      'Ribs roll to spine, engage glutes and hamstrings to get those feet up on X float. Board wag — drive your shoulders on each extension forward and feel pressure on the board. Take that ferocity to the speed set.',
+  },
   {
     id: 'swim-today',
     dayOffset: 0,
@@ -333,7 +599,14 @@ function realise(template: SessionTemplate, weekStart: DateKey): SessionModel {
     segments: template.segments ?? [],
     chartSeconds: template.chartSeconds ?? null,
     tickEveryMinutes: template.tickEveryMinutes ?? null,
-    completion: template.completed ? { completedAt: new Date(), activityId: null } : null,
+    bands: template.bands ?? [],
+    sets: template.sets ?? [],
+    intensity: template.intensity ?? null,
+    estimateBasis: template.estimateBasis ?? null,
+    connections: template.connections ?? [],
+    completion: template.completed
+      ? { completedAt: new Date(), activityId: template.activityId ?? null }
+      : null,
     coachName: template.coachName ?? null,
     coachNote: template.coachNote ?? null,
   };
@@ -411,6 +684,10 @@ export const mockSessionsService: SessionsService = {
       clearTimeout(timer);
       listeners.delete(listener);
     };
+  },
+
+  async get(uid, sessionId) {
+    return settle(() => storeFor(uid).find(session => session.id === sessionId) ?? null);
   },
 
   async markComplete(uid, sessionId, completion) {

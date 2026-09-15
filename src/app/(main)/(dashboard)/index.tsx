@@ -24,7 +24,8 @@ import { useDevicePreferences } from '@/providers/device-preferences';
 import { useSessions, type SessionModel } from '@/providers/sessions-provider';
 import { useTraining } from '@/providers/training-provider';
 import { TrendsProvider, useTrends } from '@/providers/trends-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
+import { useSetupIntent } from '@/providers/setup-intent-provider';
 
 /** Monday-to-Sunday around today, in the athlete's own local calendar. */
 function currentWeekWindow(): DateRange {
@@ -37,6 +38,7 @@ function currentWeekWindow(): DateRange {
 }
 
 export default function DashboardScreen() {
+  const services = useServices();
   const window = useMemo(() => currentWeekWindow(), []);
 
   return (
@@ -51,9 +53,20 @@ function DashboardBody() {
 
   const { user } = useAuth();
   const { alternateUi, ready: preferencesReady } = useDevicePreferences();
+  const { startAddingPlan } = useSetupIntent();
   const { state, byDate } = useSessions();
   const { plans: planState, raceFor } = useTraining();
   const { state: trends } = useTrends();
+
+  /*
+   * The intent is raised *before* the push, and has to be: `(setup)` is gated
+   * on it, and pushing first would land an athlete who already has a profile
+   * on a screen the gate immediately redirects them out of.
+   */
+  const addPlan = () => {
+    startAddingPlan();
+    router.push('/race-or-not');
+  };
 
   // An empty list while loading or on error: the carousel keeps its "add plan"
   // page, which is what an athlete with no plans should see anyway.
@@ -178,6 +191,7 @@ function DashboardBody() {
 
                 return {
                   id: session.id,
+                  onPress: () => router.push(`/session/${session.id}`),
                   title: card.title,
                   icon: card.icon,
                   iconAccent: card.iconAccent,
@@ -192,12 +206,14 @@ function DashboardBody() {
                   totalMinutes: card.totalMinutes,
                   tickEvery: card.tickEvery,
                   coach: card.coach,
+                  note: card.note,
                 };
               }),
             };
           }),
           error: state.status === 'error' ? state.message : null,
-          onOpenSheet: () => router.push('/sheet'),
+          onAddPlan: addPlan,
+          onUpdateSchedule: () => router.push('/settings/availability'),
           onOpenPlan: () => router.push('/plan'),
         }}
       />
@@ -212,7 +228,7 @@ function DashboardBody() {
       renderItem={session => (
         <WorkoutCard
           {...toWorkoutCardProps(session, 'metric')}
-          onMenuPress={() => router.push('/sheet')}
+          onPress={() => router.push(`/session/${session.id}`)}
         />
       )}
       ListHeaderComponent={
@@ -225,7 +241,7 @@ function DashboardBody() {
           <Carousel
             height={272}
             accessibilityLabel="Dashboard highlights"
-            addPage={<AddPlanCard onPress={() => router.push('/sheet')} />}>
+            addPage={<AddPlanCard onPress={addPlan} />}>
             {/* One card per plan the backend has generated: the current one
                 first, then anything upcoming. The countdowns and week numbers
                 are computed from dates by the presenter, not typed in. */}
@@ -238,7 +254,6 @@ function DashboardBody() {
                   undefined,
                   plan.status === 'current' ? actualHoursThisWeek : undefined,
                 )}
-                onMenuPress={() => router.push('/sheet')}
                 style={styles.slide}
               />
             ))}
@@ -250,7 +265,7 @@ function DashboardBody() {
               subtitle="Your days, commitments and B/C races"
               icon="calendar"
               accent={Accents.schedule}
-              onPress={() => router.push('/sheet')}
+              onPress={() => router.push('/settings/availability')}
             />
           </ThemedView>
         </ThemedView>

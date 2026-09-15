@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Icon } from '@/components/icon';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -31,7 +32,7 @@ import { ActivityWindowProvider, useActivityWindow } from '@/providers/activitie
 import { useDevicePreferences } from '@/providers/device-preferences';
 import { SessionsProvider, useSessions } from '@/providers/sessions-provider';
 import { useTraining, type PlanModel } from '@/providers/training-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 /** How far a week travels as it leaves, as a fraction of the screen width. */
 const TravelFraction = 0.28;
@@ -72,6 +73,7 @@ function weekIndexOf(plan: PlanModel | null, weekStart: DateKey): number | null 
  * could not see the state that changes.
  */
 export default function PlanScreen() {
+  const services = useServices();
   useScreenTracking('Plan');
 
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
@@ -274,6 +276,11 @@ function PlanWeekView({
                 day: day.day,
                 items: day.items.map(item => ({
                   id: item.id,
+                  /* Matches the standard build's row: a commitment has no
+                     session behind it, so it gets no handler at all. */
+                  onPress: item.commitment
+                    ? undefined
+                    : () => router.push(`/session/${item.id}`),
                   title: item.title,
                   icon: item.icon,
                   accent: item.accent,
@@ -303,7 +310,11 @@ function PlanWeekView({
 
           <View style={styles.dayItems}>
             {day.items.map(item => (
-              <PlanRow key={item.id} item={item} />
+              <PlanRow
+                key={item.id}
+                item={item}
+                onPress={() => router.push(`/session/${item.id}`)}
+              />
             ))}
           </View>
         </View>
@@ -452,74 +463,86 @@ function withUnits(text: string) {
   );
 }
 
-function PlanRow({ item }: { item: PlannedItemProps }) {
+function PlanRow({ item, onPress }: { item: PlannedItemProps; onPress: () => void }) {
   const theme = useTheme();
 
   return (
-    <ThemedView
-      type="backgroundElement"
-      style={[styles.row, { borderColor: theme.backgroundSelected }]}>
-      <View style={styles.rowHeader}>
-        <Icon name={item.icon} size={22} tintColor={item.accent} style={styles.rowIcon} />
-        <ThemedText style={styles.rowTitle}>{item.title}</ThemedText>
-      </View>
+    /* A commitment has no session behind it to open, so only a planned session
+       is a target — the gym block is a note to self, not a workout to read. */
+    <Pressable
+      onPress={onPress}
+      disabled={item.commitment}
+      accessibilityRole={item.commitment ? undefined : 'button'}
+      accessibilityLabel={item.title}
+      style={({ pressed }) => pressed && styles.rowPressed}>
+      <ThemedView
+        type="backgroundElement"
+        style={[styles.row, { borderColor: theme.backgroundSelected }]}>
+        <View style={styles.rowHeader}>
+          <Icon name={item.icon} size={22} tintColor={item.accent} style={styles.rowIcon} />
+          <ThemedText style={styles.rowTitle}>{item.title}</ThemedText>
+        </View>
 
-      <View style={styles.rowMetaLine}>
-        <ThemedText themeColor="textSecondary" style={styles.rowMeta}>
-          {item.target}
-        </ThemedText>
+        <View style={styles.rowMetaLine}>
+          <ThemedText themeColor="textSecondary" style={styles.rowMeta}>
+            {item.target}
+          </ThemedText>
 
-        {item.commitment ? (
-          <View style={styles.commitment}>
-            <Icon
-              name="arrow.triangle.2.circlepath"
-              size={14}
-              tintColor={Accents.commitment}
-            />
-            <ThemedText style={[styles.commitmentText, { color: Accents.commitment }]}>
-              COMMITMENT
+          {item.commitment ? (
+            <View style={styles.commitment}>
+              <Icon
+                name="arrow.triangle.2.circlepath"
+                size={14}
+                tintColor={Accents.commitment}
+              />
+              <ThemedText style={[styles.commitmentText, { color: Accents.commitment }]}>
+                COMMITMENT
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+
+        {item.actual ? (
+          <View style={styles.actual}>
+            <ThemedText style={[styles.actualTitle, { color: Accents.schedule }]}>
+              {item.actual.at} - {item.actual.title}
             </ThemedText>
+            <View style={styles.actualStats}>
+              {item.actual.stats.map(stat => (
+                <ThemedText key={stat} style={styles.actualStat}>
+                  {stat}
+                </ThemedText>
+              ))}
+            </View>
           </View>
         ) : null}
-      </View>
 
-      {item.actual ? (
-        <View style={styles.actual}>
-          <ThemedText style={[styles.actualTitle, { color: Accents.schedule }]}>
-            {item.actual.at} - {item.actual.title}
-          </ThemedText>
-          <View style={styles.actualStats}>
-            {item.actual.stats.map(stat => (
-              <ThemedText key={stat} style={styles.actualStat}>
-                {stat}
-              </ThemedText>
-            ))}
+        {/* The status disc straddles the card's leading edge, tying the row to the
+            date gutter beside it. */}
+        {item.status !== 'none' ? (
+          <View style={styles.statusSlot} pointerEvents="none">
+            <View
+              style={[
+                styles.status,
+                { backgroundColor: item.status === 'done' ? Accents.endurance : Accents.speed },
+              ]}>
+              <Icon
+                name={item.status === 'done' ? 'checkmark' : 'xmark'}
+                size={13}
+                tintColor="#FFFFFF"
+              />
+            </View>
           </View>
-        </View>
-      ) : null}
-
-      {/* The status disc straddles the card's leading edge, tying the row to the
-          date gutter beside it. */}
-      {item.status !== 'none' ? (
-        <View style={styles.statusSlot} pointerEvents="none">
-          <View
-            style={[
-              styles.status,
-              { backgroundColor: item.status === 'done' ? Accents.endurance : Accents.speed },
-            ]}>
-            <Icon
-              name={item.status === 'done' ? 'checkmark' : 'xmark'}
-              size={13}
-              tintColor="#FFFFFF"
-            />
-          </View>
-        </View>
-      ) : null}
-    </ThemedView>
+        ) : null}
+      </ThemedView>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  rowPressed: {
+    opacity: 0.8,
+  },
   /* Fills the tab beneath the sliding week, so the page colour shows through
      rather than the tab behind it as the week fades. */
   container: {

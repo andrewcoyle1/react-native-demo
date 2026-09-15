@@ -62,4 +62,28 @@ export async function activityRoutes(app: FastifyInstance): Promise<void> {
       return activities.readPage(request.userId!, cursor ?? null, limit);
     },
   );
+
+  /*
+   * Declared after the collection route, and it has to be: Fastify's router
+   * matches a static segment before a parameterised one either way, but keeping
+   * the order obvious means nobody later wonders whether `/v1/activities` is
+   * being swallowed by `:id`.
+   */
+  app.get(
+    '/v1/activities/:id',
+    {
+      preHandler: authenticate,
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
+      },
+    },
+    async request => {
+      const { id } = request.params as { id: string };
+      return activities.readOne(request.userId!, id);
+    },
+  );
 }

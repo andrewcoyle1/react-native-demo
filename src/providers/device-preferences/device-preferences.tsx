@@ -36,13 +36,36 @@ import { reportError } from '@/services/telemetry';
 const DIRECTORY = 'device-preferences';
 const FILENAME = 'preferences.json';
 
+/**
+ * Whether the athlete has agreed to analytics.
+ *
+ * `null` means they have not been asked yet, and is deliberately distinct from
+ * `'denied'`: analytics stays off for both, but only `null` should raise the
+ * question. Under GDPR and CPRA consent has to be given, and silence is not it.
+ */
+export type AnalyticsConsent = 'granted' | 'denied' | null;
+
 export type DevicePreferences = {
   /** Swaps the Dashboard and Profile tabs for the gluestack-ui builds of them. */
   alternateUi: boolean;
+  analyticsConsent: AnalyticsConsent;
+  /**
+   * The uid that gave `analyticsConsent`.
+   *
+   * Consent belongs to a person, not to a handset. Without this the answer is
+   * inherited by whoever signs in next — delete the account and make a new one
+   * and the new athlete is tracked having never been asked. Readers must treat
+   * a consent whose uid is not the current one as unanswered; `useAnalyticsConsent`
+   * is the only thing that should be doing that comparison.
+   */
+  analyticsConsentUid: string | null;
 };
 
 const defaults: DevicePreferences = {
   alternateUi: false,
+  // Unasked, and therefore untracked. The safe end of the one-way door.
+  analyticsConsent: null,
+  analyticsConsentUid: null,
 };
 
 type DevicePreferencesValue = DevicePreferences & {
@@ -55,6 +78,8 @@ type DevicePreferencesValue = DevicePreferences & {
    */
   ready: boolean;
   setAlternateUi: (value: boolean) => void;
+  /** Records an answer against the athlete who gave it. */
+  setAnalyticsConsent: (value: Exclude<AnalyticsConsent, null>, uid: string) => void;
 };
 
 const DevicePreferencesContext = createContext<DevicePreferencesValue | null>(null);
@@ -82,6 +107,14 @@ async function read(): Promise<DevicePreferences> {
     return {
       alternateUi:
         typeof record.alternateUi === 'boolean' ? record.alternateUi : defaults.alternateUi,
+      analyticsConsent:
+        record.analyticsConsent === 'granted' || record.analyticsConsent === 'denied'
+          ? record.analyticsConsent
+          : defaults.analyticsConsent,
+      analyticsConsentUid:
+        typeof record.analyticsConsentUid === 'string'
+          ? record.analyticsConsentUid
+          : defaults.analyticsConsentUid,
     };
   } catch {
     // Missing, corrupt, or unreadable all mean the same thing here: nobody has
@@ -135,6 +168,13 @@ export function DevicePreferencesProvider({ children }: { children: ReactNode })
     setState(current => ({ ...current, alternateUi }));
   }, []);
 
+  const setConsent = useCallback(
+    (analyticsConsent: Exclude<AnalyticsConsent, null>, uid: string) => {
+      setState(current => ({ ...current, analyticsConsent, analyticsConsentUid: uid }));
+    },
+    [],
+  );
+
   // Persisted from an effect rather than from inside the setter: the updater
   // passed to `setState` has to stay pure, and StrictMode calls it twice.
   useEffect(() => {
@@ -145,14 +185,12 @@ export function DevicePreferencesProvider({ children }: { children: ReactNode })
   }, [state]);
 
   const value = useMemo(
-    () => ({ ...state, ready, setAlternateUi }),
-    [state, ready, setAlternateUi],
+    () => ({ ...state, ready, setAlternateUi, setAnalyticsConsent: setConsent }),
+    [state, ready, setAlternateUi, setConsent],
   );
 
   return (
-    <DevicePreferencesContext.Provider value={value}>
-      {children}
-    </DevicePreferencesContext.Provider>
+    <DevicePreferencesContext.Provider value={value}>{children}</DevicePreferencesContext.Provider>
   );
 }
 

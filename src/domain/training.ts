@@ -27,6 +27,35 @@ export type Purpose = (typeof PURPOSES)[number];
 export const ZONES = ['warmup', 'easy', 'hard', 'swim', 'ride', 'sprint', 'drill'] as const;
 export type Zone = (typeof ZONES)[number];
 
+/**
+ * The training zone a step is prescribed at — Z1 easy through Z5 maximal.
+ *
+ * Distinct from `Zone`, which colours the chart by what the athlete is *doing*
+ * (a drill, a warm-up). This is the intensity asked for, and it is what the
+ * step list quotes: "100m Freestyle at Z2".
+ */
+export const STEP_ZONES = ['z1', 'z2', 'z3', 'z4', 'z5'] as const;
+export type StepZone = (typeof STEP_ZONES)[number];
+
+/** How hard a session is overall, as its summary tile reports it. */
+export const INTENSITIES = ['low', 'moderate', 'high'] as const;
+export type Intensity = (typeof INTENSITIES)[number];
+
+/**
+ * The named groups a workout is written in. Shared rather than session-owned
+ * because both the step list and the chart's bands are labelled with them.
+ */
+export const SET_KINDS = ['warmup', 'drill', 'main', 'skill', 'speed', 'warmdown'] as const;
+export type SetKind = (typeof SET_KINDS)[number];
+
+/** Where a planned session can be sent. */
+export const CONNECTION_KINDS = ['garmin', 'zwo'] as const;
+export type ConnectionKind = (typeof CONNECTION_KINDS)[number];
+
+/** Where a recorded activity can also be viewed. */
+export const ACTIVITY_PROVIDERS = ['strava', 'garmin'] as const;
+export type ActivityProvider = (typeof ACTIVITY_PROVIDERS)[number];
+
 /** How an activity reached the app — the small marks on an activity row. */
 export const ACTIVITY_SOURCES = ['linked', 'uploaded', 'effort'] as const;
 export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];

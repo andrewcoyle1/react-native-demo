@@ -1,15 +1,18 @@
 /**
  * `/v1/plans`, `/v1/races` and `/v1/schedule`.
  *
- * Races and the plan collection's *contents* are read-only, enforced by there
- * being no route to write them rather than by a check inside one. The one
- * exception is `DELETE /v1/plans`, which only ever empties the collection —
- * an athlete resetting their training plan — never creates or edits a plan.
+ * Races are read-only, and so is the *inside* of a plan: there is no route
+ * that edits a plan's weeks, its sessions or its progress, because the backend
+ * authors those. The collection itself the athlete does control — `POST` adds
+ * a plan and `DELETE` empties the collection — which is a narrower thing than
+ * it sounds, since a plan is only ever created whole from a race and the
+ * athlete's stored schedule.
  */
 import type { FastifyInstance } from 'fastify';
 
-import type { PlanDTO } from '../domain.ts';
+import type { PlanDTO, RaceDraftDTO } from '../domain.ts';
 import { authenticate } from '../plugins/authenticate.ts';
+import { race } from '../onboarding/routes.ts';
 import * as training from './service.ts';
 
 const PLAN_STATUSES = ['current', 'upcoming', 'complete'] as const;
@@ -42,6 +45,32 @@ export async function trainingRoutes(app: FastifyInstance): Promise<void> {
         );
 
       return training.readPlans(request.userId!, statuses?.length ? statuses : undefined);
+    },
+  );
+
+  /**
+   * Adds a plan to an athlete who already has a profile.
+   *
+   * The body carries only the race, or null for an open training goal:
+   * everything else a plan needs is already stored against the athlete.
+   */
+  app.post(
+    '/v1/plans',
+    {
+      preHandler: authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['race'],
+          additionalProperties: false,
+          properties: { race: { anyOf: [race, { type: 'null' }] } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { race: draft } = request.body as { race: RaceDraftDTO | null };
+      reply.code(201);
+      return training.addPlan(request.userId!, draft);
     },
   );
 

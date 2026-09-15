@@ -31,6 +31,24 @@ export async function sessionRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  app.get(
+    '/v1/sessions/:id',
+    {
+      preHandler: authenticate,
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string', format: 'uuid' } },
+        },
+      },
+    },
+    async request => {
+      const { id } = request.params as { id: string };
+      return sessions.readOne(request.userId!, id);
+    },
+  );
+
   app.patch(
     '/v1/sessions/:id/completion',
     {

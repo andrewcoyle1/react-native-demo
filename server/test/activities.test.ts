@@ -45,6 +45,20 @@ async function seed(uid: string, startedAt: string, title: string) {
   );
 }
 
+/** Seeds one activity and hands back its id, for the detail read. */
+async function seedOne(uid: string, title: string): Promise<string> {
+  const { rows } = await pool.query<{ id: string }>(
+    `insert into activities (user_id, started_at, title, discipline, place, route,
+                             sources, distance_metres, duration_seconds, pace_seconds_per_km)
+     values ($1, '2026-09-14T09:04:00Z', $2, 'run', 'Malahide, IE',
+             '[{"x":0.1,"y":0.2},{"x":0.4,"y":0.5}]'::jsonb,
+             '{linked}', 6900, 2102, 304)
+     returning id`,
+    [uid, title],
+  );
+  return rows[0]!.id;
+}
+
 /** Walks every page and returns the titles, in order. */
 async function walk(token: string, limit: number): Promise<string[]> {
   const titles: string[] = [];
@@ -242,5 +256,69 @@ describe('shape', () => {
       });
       assert.equal(attempt.statusCode, 404, `${method} should not exist`);
     }
+  });
+});
+
+describe('reading one activity', () => {
+  /*
+   * The detail sheet's read, separate from the list because this is where the
+   * streams live: a list is dozens of rows and a stream is hundreds of samples
+   * each, so sending them to build a row would cost more than the row is worth.
+   */
+  it('returns the activity by id', async () => {
+    const { token, uid } = await signUp();
+    const id = await seedOne(uid, 'Stamina: 35 min Easy Run');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/activities/${id}`,
+      headers: authed(token),
+    });
+
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.json().title, 'Stamina: 35 min Easy Run');
+    assert.equal(response.json().place, 'Malahide, IE');
+    assert.equal(response.json().route.length, 2);
+  });
+
+  it('will not hand one athlete another athlete\'s activity', async () => {
+    const owner = await signUp('owner@example.com');
+    const other = await signUp('other@example.com');
+    const id = await seedOne(owner.uid, 'Theirs');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/activities/${id}`,
+      headers: authed(other.token),
+    });
+
+    // 404 rather than 403, so an id cannot be probed for existence.
+    assert.equal(response.statusCode, 404, response.body);
+    assert.equal(response.json().error.code, 'activity_not_found');
+  });
+
+  it('does not swallow the collection route', async () => {
+    const { token, uid } = await signUp();
+    await seedOne(uid, 'Listed');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/activities',
+      headers: authed(token),
+    });
+
+    // `/v1/activities` must still be the page, not a request for an activity
+    // whose id happens to be empty.
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.json().items.length, 1);
+  });
+
+  it('needs a token', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/activities/00000000-0000-0000-0000-000000000000',
+    });
+
+    assert.equal(response.statusCode, 401, response.body);
   });
 });

@@ -53,6 +53,7 @@ import { VStack } from '@/components/ui/vstack';
 /* The app's SF Symbol renderer. gluestack's icon set has no swim, bike or run
    glyph, and the disciplines are the one place this screen needs them. */
 import { Icon as SymbolIcon } from '@/components/icon';
+import { CoachNote } from '@/components/coach-note';
 import { IntervalChart, type IntervalSegment } from '@/components/interval-chart';
 import { PlanChart } from '@/components/plan-chart';
 import { AltCarousel } from './carousel';
@@ -98,6 +99,14 @@ export type AltPlan = {
 
 export type AltSession = {
   id: string;
+  /**
+   * Opens this session's detail sheet.
+   *
+   * Per session rather than one callback for the card: the sheet is addressed
+   * by id, and a single shared handler cannot say which row was tapped — which
+   * is how every session here briefly opened the release notes instead.
+   */
+  onPress: () => void;
   title: string;
   icon: SFSymbol;
   iconAccent?: string;
@@ -111,6 +120,10 @@ export type AltSession = {
   totalMinutes?: number;
   tickEvery?: number;
   coach?: string;
+  /* What the coach said about this session. Nullable independently of the name
+     in the domain, so a coached session with nothing written about it stays a
+     representable state rather than an impossible one. */
+  note?: string;
 };
 
 export type AltDay = {
@@ -127,7 +140,13 @@ export type AltDashboardModel = {
   days: AltDay[];
   /** A failed read, said plainly rather than left looking like a rest week. */
   error: string | null;
-  onOpenSheet: () => void;
+  /**
+   * Adds a plan. Still unwired: there is no plan-creation flow to open, and
+   * this used to point at the release notes.
+   */
+  onAddPlan: () => void;
+  /** Opens availability — which days may hold a workout, and what goes on them. */
+  onUpdateSchedule: () => void;
   onOpenPlan: () => void;
 };
 
@@ -148,7 +167,7 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
         <Box className="-mx-4">
           <AltCarousel
             accessibilityLabel="Your plans"
-            addPage={<AddPlanPage onPress={model.onOpenSheet} />}>
+            addPage={<AddPlanPage onPress={model.onAddPlan} />}>
             {model.plans.map(plan => (
               <PlanPage key={plan.id} plan={plan} />
             ))}
@@ -160,11 +179,11 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
           accent={Accents.schedule}
           title="Update Your Schedule"
           subtitle="Your days, commitments and B/C races"
-          onPress={model.onOpenSheet}
+          onPress={model.onUpdateSchedule}
         />
 
         {model.days.map(day => (
-          <DayCard key={day.id} day={day} onSessionPress={model.onOpenSheet} />
+          <DayCard key={day.id} day={day} />
         ))}
 
         {/* An empty week is a real state — a rest week, or a plan that has not
@@ -379,7 +398,7 @@ function ActionRow({
   );
 }
 
-function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => void }) {
+function DayCard({ day }: { day: AltDay }) {
   return (
     <VStack space="sm">
       {/* Day and date on one line, the day itself emphasised: the date is there
@@ -401,7 +420,7 @@ function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => v
                 chip, so the rule reads as separating the titles rather than
                 cutting the card in half. */}
             {index > 0 ? <Divider className="ml-16" /> : null}
-            <SessionRow session={session} onPress={onSessionPress} />
+            <SessionRow session={session} />
           </View>
         ))}
       </Card>
@@ -409,85 +428,112 @@ function DayCard({ day, onSessionPress }: { day: AltDay; onSessionPress: () => v
   );
 }
 
-function SessionRow({ session, onPress }: { session: AltSession; onPress: () => void }) {
+function SessionRow({ session }: { session: AltSession }) {
+  /* Narrowed once, so the note below and the fallback inside the row agree
+     about which of the two they are showing. */
+  const note = session.coach && session.note ? { coach: session.coach, body: session.note } : null;
+
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={session.title}
-      className="px-3 py-3">
-      <HStack space="md" className="items-start">
-        <IconChip icon={session.icon} accent={session.iconAccent ?? Accents.interval} />
+    /* The row is a plain container, not the press target. `CoachNote` brings a
+       `Pressable` of its own to expand itself, and nesting that inside a row
+       that opens the session would leave which one answers a tap to responder
+       negotiation — and would read to a screen reader as a button inside a
+       button. Two siblings instead: a tap on the note expands the note, a tap
+       anywhere else opens the session. */
+    <View className="px-3 py-3">
+      <Pressable
+        onPress={session.onPress}
+        accessibilityRole="button"
+        accessibilityLabel={session.title}
+        accessibilityHint="Opens the session">
+        <HStack space="md" className="items-start">
+          <IconChip icon={session.icon} accent={session.iconAccent ?? Accents.interval} />
 
-        <VStack space="xs" className="flex-1">
-          <HStack space="sm" className="items-start">
-            <Text className="flex-1 text-foreground font-medium">{session.title}</Text>
-            {session.completed ? (
-              <Badge variant="secondary">
-                <BadgeText>Done</BadgeText>
-              </Badge>
-            ) : null}
-          </HStack>
-
-          {session.tags.length > 0 ? (
-            <HStack space="xs" className="flex-wrap">
-              {session.tags.map(tag => (
-                <Badge key={tag} variant="outline">
-                  <BadgeText>{tag}</BadgeText>
+          <VStack space="xs" className="flex-1">
+            <HStack space="sm" className="items-start">
+              <Text className="flex-1 text-foreground font-medium">{session.title}</Text>
+              {session.completed ? (
+                <Badge variant="secondary">
+                  <BadgeText>Done</BadgeText>
                 </Badge>
-              ))}
+              ) : null}
             </HStack>
-          ) : null}
 
-          {/* Value over label, and the value first: these are the numbers the
-              athlete is scanning for, and a leading grey label buries them. */}
-          {session.metrics.length > 0 ? (
-            <HStack space="lg" className="flex-wrap pt-1">
-              {session.metrics.map(metric => (
-                <VStack key={metric.label}>
-                  <Text size="sm" className="text-foreground font-semibold">
-                    {metric.value}
-                    {metric.unit ? (
-                      <Text size="xs" className="text-muted-foreground font-normal">
-                        {' '}
-                        {metric.unit}
-                      </Text>
-                    ) : null}
-                  </Text>
-                  <Text size="2xs" className="text-muted-foreground uppercase tracking-wider">
-                    {metric.label}
-                  </Text>
-                </VStack>
-              ))}
-            </HStack>
-          ) : null}
+            {session.tags.length > 0 ? (
+              <HStack space="xs" className="flex-wrap">
+                {session.tags.map(tag => (
+                  <Badge key={tag} variant="outline">
+                    <BadgeText>{tag}</BadgeText>
+                  </Badge>
+                ))}
+              </HStack>
+            ) : null}
 
-          {/* The session's shape, after the numbers that summarise it and
-              before the coach's name — the same order the standard card uses.
-              `IntervalChart` is reused rather than rebuilt: it is themed text
-              and plain views, and these rows sit on a card rather than over
-              artwork, so nothing about it needs restating in gluestack. */}
-          {session.segments && session.segments.length > 0 ? (
-            <IntervalChart
-              segments={session.segments}
-              totalMinutes={session.totalMinutes ?? 0}
-              tickEvery={session.tickEvery}
-              height={48}
-              /* Shorter than the standard card's 64: this chart shares its
-                 column with the icon chip rather than running the card's full
-                 width, and at 64 it out-weighed the title above it. */
-              style={{ paddingTop: Spacing.one }}
-            />
-          ) : null}
+            {/* Value over label, and the value first: these are the numbers the
+                athlete is scanning for, and a leading grey label buries them. */}
+            {session.metrics.length > 0 ? (
+              <HStack space="lg" className="flex-wrap pt-1">
+                {session.metrics.map(metric => (
+                  <VStack key={metric.label}>
+                    <Text size="sm" className="text-foreground font-semibold">
+                      {metric.value}
+                      {metric.unit ? (
+                        <Text size="xs" className="text-muted-foreground font-normal">
+                          {' '}
+                          {metric.unit}
+                        </Text>
+                      ) : null}
+                    </Text>
+                    <Text size="2xs" className="text-muted-foreground uppercase tracking-wider">
+                      {metric.label}
+                    </Text>
+                  </VStack>
+                ))}
+              </HStack>
+            ) : null}
 
-          {session.coach ? (
-            <Text size="xs" className="text-muted-foreground">
-              With {session.coach}
-            </Text>
-          ) : null}
-        </VStack>
-      </HStack>
-    </Pressable>
+            {/* The session's shape, after the numbers that summarise it and
+                before the coach's name — the same order the standard card uses.
+                `IntervalChart` is reused rather than rebuilt: it is themed text
+                and plain views, and these rows sit on a card rather than over
+                artwork, so nothing about it needs restating in gluestack. */}
+            {session.segments && session.segments.length > 0 ? (
+              <IntervalChart
+                segments={session.segments}
+                totalMinutes={session.totalMinutes ?? 0}
+                tickEvery={session.tickEvery}
+                height={48}
+                /* Shorter than the standard card's 64: this chart shares its
+                   column with the icon chip rather than running the card's full
+                   width, and at 64 it out-weighed the title above it. */
+                style={{ paddingTop: Spacing.one }}
+              />
+            ) : null}
+
+            {/* A coach with nothing written about this session: there is
+                nothing to expand, so the name is said plainly rather than
+                dressing an empty block up as a note. */}
+            {note === null && session.coach ? (
+              <Text size="xs" className="text-muted-foreground">
+                With {session.coach}
+              </Text>
+            ) : null}
+          </VStack>
+        </HStack>
+      </Pressable>
+
+      {/* `CoachNote` reused rather than rebuilt, for the same reason as the
+          chart above: it is themed text over plain views, and a gluestack copy
+          would be a second thing to keep agreeing with the standard card.
+
+          `pl-14` is the chip's width plus the row's gap (44 + 12), which lands
+          the note on the same left edge as the title and the chart above it. */}
+      {note ? (
+        <View className="pl-14 pt-2">
+          <CoachNote coach={note.coach} note={note.body} />
+        </View>
+      ) : null}
+    </View>
   );
 }
 

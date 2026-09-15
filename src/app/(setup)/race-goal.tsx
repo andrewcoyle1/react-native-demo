@@ -21,7 +21,7 @@ import { stepProgress } from './flow-order';
 export default function RaceGoalScreen() {
   useScreenTracking('Race goal');
   const theme = useTheme();
-  const { answers, update } = useOnboardingFlow();
+  const { answers, update, mode } = useOnboardingFlow();
 
   const raceName = 'IRONMAN 70.3 Luxembourg';
 
@@ -29,7 +29,7 @@ export default function RaceGoalScreen() {
     <OnboardingStep
       title="What's your goal?"
       subtitle={`Set your target time for ${raceName}`}
-      progress={stepProgress('race-goal', true)}
+      progress={stepProgress('race-goal', true, mode)}
       onNext={() => router.push('/other-races')}>
       <FieldCaption style={styles.caption}>{`Target time for ${raceName}`}</FieldCaption>
 

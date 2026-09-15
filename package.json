@@ -28,6 +28,7 @@
     "expo-symbols": "~58.0.0",
     "expo-system-ui": "~58.0.0",
     "expo-web-browser": "~58.0.0",
+    "mixpanel-react-native": "^3.7.0",
     "nativewind": "^5.0.0-preview.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -42,13 +43,20 @@
     "react-native-worklets": "0.12.2"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "^0.87.1",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~58.0.1",
     "jpeg-js": "^0.4.4",
     "postcss": "^8.5.28",
+    "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",
+    "test-renderer": "^1.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -65,7 +73,11 @@
     "start:vps": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo start --clear",
     "device:ios": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:ios --device --configuration Release",
     "device:android": "EXPO_PUBLIC_APP_ENV=api EXPO_PUBLIC_API_URL=https://46-101-9-200.sslip.io expo run:android --device --variant release",
-    "backdrop:variants": "node scripts/make-backdrop-variants.mjs"
+    "backdrop:variants": "node scripts/make-backdrop-variants.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"server/**/*.ts\" \"*.{js,mjs,json}\"",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "private": true,
   "overrides": {
@@ -73,5 +85,22 @@
   },
   "resolutions": {
     "lightningcss": "1.30.1"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|mixpanel-react-native|@react-native-firebase/.*|standard-navigation|@gluestack-ui/.*|@legendapp/motion|react-native-css)"
+    ],
+    "setupFiles": [
+      "<rootDir>/jest.setup.ts"
+    ],
+    "moduleNameMapper": {
+      "\\.css$": "<rootDir>/jest.style-stub.js",
+      "^@/assets/(.*)$": "<rootDir>/assets/$1"
+    },
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/server/"
+    ]
   }
 }

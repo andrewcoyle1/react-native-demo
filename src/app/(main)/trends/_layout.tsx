@@ -14,9 +14,10 @@ import { useMemo } from 'react';
 
 import { addDays, toDateKey } from '@/domain/training';
 import { TrendsProvider } from '@/providers/trends-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 export default function TrendsStackLayout() {
+  const services = useServices();
   /** The Monday-to-Sunday week, matching what the Plan tab reports on. */
   const window = useMemo(() => {
     const today = new Date();

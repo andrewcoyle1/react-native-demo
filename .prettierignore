@@ -1,0 +1,14 @@
+# Generated native projects. Regenerated wholesale by `expo prebuild`.
+/ios
+/android
+/.expo
+
+# Vendored gluestack-ui components. `npx gluestack-ui add <name>` overwrites
+# these from the upstream templates, so formatting them buys one tidy diff and
+# then fights the CLI every time a component is added or updated.
+/src/components/ui
+
+# Lockfiles and build output.
+package-lock.json
+/dist
+/build

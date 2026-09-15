@@ -59,7 +59,12 @@ const raceLeg = {
   properties: { discipline, distanceMetres: positiveNumber },
 } as const;
 
-const race = {
+/**
+ * Exported so `POST /v1/plans` validates a race exactly as onboarding does.
+ * Two copies of a validation schema is two copies to keep agreeing, and the
+ * one that drifts is the one nobody is looking at.
+ */
+export const race = {
   type: 'object',
   required: ['name', 'place', 'date', 'priority', 'targetSeconds', 'legs'],
   additionalProperties: false,

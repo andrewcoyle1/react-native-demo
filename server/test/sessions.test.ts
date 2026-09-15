@@ -65,6 +65,79 @@ async function seedSession(
   return id;
 }
 
+describe('reading one session', () => {
+  /*
+   * The detail sheet's read. It exists because the sheet is a root-level route
+   * in the app: it opens above whichever window the screen behind it is
+   * holding, so it cannot find the session in state it already has.
+   */
+  it('returns the session by id', async () => {
+    const { token, uid } = await signUp();
+    const id = await seedSession(uid, '2026-09-14', { title: 'Wag that Board' });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/sessions/${id}`,
+      headers: authed(token),
+    });
+
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(response.json().title, 'Wag that Board');
+    assert.equal(response.json().date, '2026-09-14');
+    assert.equal(response.json().segments.length, 3);
+  });
+
+  it('will not hand one athlete another athlete\'s session', async () => {
+    const owner = await signUp('owner@example.com');
+    const other = await signUp('other@example.com');
+    const id = await seedSession(owner.uid, '2026-09-14');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/sessions/${id}`,
+      headers: authed(other.token),
+    });
+
+    // 404, not 403: a different answer for "exists but not yours" would let
+    // anyone probe for ids that exist.
+    assert.equal(response.statusCode, 404, response.body);
+    assert.equal(response.json().error.code, 'session_not_found');
+  });
+
+  it('404s for an id that does not exist', async () => {
+    const { token } = await signUp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/sessions/00000000-0000-0000-0000-000000000000',
+      headers: authed(token),
+    });
+
+    assert.equal(response.statusCode, 404, response.body);
+  });
+
+  it('refuses an id that is not a uuid', async () => {
+    const { token } = await signUp();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/sessions/not-a-uuid',
+      headers: authed(token),
+    });
+
+    assert.equal(response.statusCode, 422, response.body);
+  });
+
+  it('needs a token', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/sessions/00000000-0000-0000-0000-000000000000',
+    });
+
+    assert.equal(response.statusCode, 401, response.body);
+  });
+});
+
 describe('reading a window', () => {
   it('returns sessions in the span, by day then position', async () => {
     const { token, uid } = await signUp();

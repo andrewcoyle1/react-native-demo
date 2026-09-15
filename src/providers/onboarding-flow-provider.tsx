@@ -15,6 +15,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 
 import type { AbilityAnswer } from '@/components/onboarding/ability-screen';
 import type { Weekday } from '@/components/onboarding/day-grid';
+import type { SetupMode } from '@/app/(setup)/flow-order';
 import type { Discipline } from '@/domain/training';
 
 export type PlanDistance = 'long' | 'middle' | 'olympic' | 'sprint';
@@ -94,21 +95,31 @@ const defaultAnswers: OnboardingAnswers = {
 };
 
 type OnboardingFlowContextValue = {
+  /** Which flow is running — the athlete's first plan, or another one. */
+  mode: SetupMode;
   answers: OnboardingAnswers;
   update: (patch: Partial<OnboardingAnswers>) => void;
 };
 
 const OnboardingFlowContext = createContext<OnboardingFlowContextValue | null>(null);
 
-export function OnboardingFlowProvider({ children }: { children: ReactNode }) {
+export function OnboardingFlowProvider({
+  children,
+  mode = 'onboarding',
+}: {
+  children: ReactNode;
+  /** Which flow these answers belong to. Decides the order and the funnel. */
+  mode?: SetupMode;
+}) {
   const [answers, setAnswers] = useState<OnboardingAnswers>(defaultAnswers);
 
   const value = useMemo<OnboardingFlowContextValue>(
     () => ({
+      mode,
       answers,
       update: patch => setAnswers(current => ({ ...current, ...patch })),
     }),
-    [answers],
+    [answers, mode],
   );
 
   return <OnboardingFlowContext value={value}>{children}</OnboardingFlowContext>;

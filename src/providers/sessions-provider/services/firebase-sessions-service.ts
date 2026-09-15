@@ -7,6 +7,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getFirestore,
   onSnapshot,
   orderBy,
@@ -17,13 +18,26 @@ import {
 } from '@react-native-firebase/firestore';
 
 import type {
+  ChartBand,
   SegmentModel,
+  SessionConnection,
   SessionModel,
   SessionTargets,
   SessionsService,
+  StepRest,
+  WorkoutSet,
+  WorkoutStep,
 } from './sessions-service';
 
-import { DISCIPLINES, PURPOSES, ZONES } from '@/domain/training';
+import {
+  CONNECTION_KINDS,
+  DISCIPLINES,
+  INTENSITIES,
+  PURPOSES,
+  SET_KINDS,
+  STEP_ZONES,
+  ZONES,
+} from '@/domain/training';
 import {
   readArray,
   readBoolean,
@@ -59,6 +73,79 @@ function toSegment(data: RawData): SegmentModel | null {
     intensity: readNumber(data?.intensity) ?? 0.5,
     drill: readBoolean(data?.drill) ?? false,
   };
+}
+
+function toBand(data: RawData): ChartBand | null {
+  const kind = readEnum(data?.kind, SET_KINDS);
+  const startSeconds = readNumber(data?.startSeconds);
+  const durationSeconds = readNumber(data?.durationSeconds);
+
+  return kind === undefined || startSeconds === undefined || durationSeconds === undefined
+    ? null
+    : { kind, startSeconds, durationSeconds };
+}
+
+/** Absent reads as no rest at all, which is different from an open one. */
+function toRest(data: RawData): StepRest | null {
+  const seconds = readNumber(data?.seconds);
+  const open = readBoolean(data?.open) ?? false;
+  return seconds === undefined && !open ? null : { seconds: seconds ?? null, open };
+}
+
+/**
+ * Recursive, and deliberately tolerant: a step that cannot be read is dropped
+ * rather than failing the set around it, because a workout missing one line is
+ * still a workout the athlete can follow.
+ */
+function toStep(data: RawData): WorkoutStep | null {
+  if (readString(data?.kind) === 'repeat') {
+    const times = readNumber(data?.times);
+    if (times === undefined) {
+      return null;
+    }
+    return {
+      kind: 'repeat',
+      times,
+      children: readArray(data?.children, toStep),
+      rest: toRest(readMap(data?.rest)),
+    };
+  }
+
+  const name = readString(data?.name);
+  if (name === undefined) {
+    return null;
+  }
+
+  return {
+    kind: 'effort',
+    distanceMetres: readNumber(data?.distanceMetres) ?? null,
+    durationSeconds: readNumber(data?.durationSeconds) ?? null,
+    name,
+    zone: readEnum(data?.zone, STEP_ZONES) ?? null,
+    equipment: readStringArray(data?.equipment),
+    hasVideo: readBoolean(data?.hasVideo) ?? false,
+    note: readString(data?.note) ?? null,
+    rest: toRest(readMap(data?.rest)),
+    parts: readArray(data?.parts, toStep),
+  };
+}
+
+function toSet(data: RawData): WorkoutSet | null {
+  const kind = readEnum(data?.kind, SET_KINDS);
+  if (kind === undefined) {
+    return null;
+  }
+  return {
+    id: readString(data?.id) ?? kind,
+    kind,
+    title: readString(data?.title) ?? null,
+    steps: readArray(data?.steps, toStep),
+  };
+}
+
+function toConnection(data: RawData): SessionConnection | null {
+  const kind = readEnum(data?.kind, CONNECTION_KINDS);
+  return kind === undefined ? null : { kind, syncedAt: readDate(data?.syncedAt) ?? null };
 }
 
 /** Every field is optional, so this cannot fail — only come back empty. */
@@ -105,6 +192,11 @@ function toSessionModel(id: string, data: RawData): SessionModel | null {
     segments: readArray(data?.segments, toSegment),
     chartSeconds: readNumber(data?.chartSeconds) ?? null,
     tickEveryMinutes: readNumber(data?.tickEveryMinutes) ?? null,
+    bands: readArray(data?.bands, toBand),
+    sets: readArray(data?.sets, toSet),
+    intensity: readEnum(data?.intensity, INTENSITIES) ?? null,
+    estimateBasis: readString(data?.estimateBasis) ?? null,
+    connections: readArray(data?.connections, toConnection),
     // A completion without a timestamp is treated as no completion: the card
     // would otherwise show a "Completed" capsule it cannot date.
     completion: completedAt
@@ -116,6 +208,11 @@ function toSessionModel(id: string, data: RawData): SessionModel | null {
 }
 
 export const firebaseSessionsService: SessionsService = {
+  async get(uid, sessionId) {
+    const snapshot = await getDoc(doc(sessionsCollection(uid), sessionId));
+    return snapshot.exists() ? toSessionModel(snapshot.id, snapshot.data()) : null;
+  },
+
   subscribe(uid, window, onSessions, onError) {
     // `date` is a 'YYYY-MM-DD' string, so the window is a plain range query
     // covered by the single-field index Firestore creates automatically.

@@ -1,19 +1,14 @@
 /**
- * Firebase implementation of `TelemetryService` (Analytics + Crashlytics).
+ * Crashlytics implementation of `CrashService`.
+ *
+ * This file used to carry Analytics too; that half now lives in
+ * `mixpanel-analytics-service.ts`. Crashlytics stays on Firebase for the moment
+ * and is expected to be replaced by a dedicated crash vendor later — which is
+ * what the seam split makes cheap.
  *
  * Collection is switched on only in production — see `@/config/environment`.
- * Every call is fire-and-forget: telemetry must never break a user flow, so
- * failures are swallowed after being logged.
  */
 import { getApp } from '@react-native-firebase/app';
-import {
-  getAnalytics,
-  getAppInstanceId,
-  logEvent,
-  logScreenView,
-  setAnalyticsCollectionEnabled,
-  setUserId as setAnalyticsUserId,
-} from '@react-native-firebase/analytics';
 import {
   didCrashOnPreviousExecution,
   crash as firebaseCrash,
@@ -24,40 +19,12 @@ import {
   setUserId as setCrashlyticsUserId,
 } from '@react-native-firebase/crashlytics';
 
-import type { AppInfo, TelemetryService } from './telemetry-service';
+import type { AppInfo, CrashService } from './telemetry-service';
+import { swallow, trace } from './logging';
 
 import { flags } from '@/config/environment';
 
-function swallow(operation: string) {
-  return (error: unknown) => {
-    console.warn(`[telemetry] ${operation} failed`, error);
-  };
-}
-
-function trace(operation: string, detail?: unknown) {
-  if (flags.verboseLogging) {
-    console.log(`[telemetry] ${operation}`, detail ?? '');
-  }
-}
-
-const service: TelemetryService = {
-  trackScreenView(screenName) {
-    trace('screen_view', screenName);
-    logScreenView(getAnalytics(), {
-      screen_name: screenName,
-      screen_class: screenName,
-    }).catch(swallow('trackScreenView'));
-  },
-
-  trackEvent(name, params) {
-    trace(`event ${name}`, params);
-    try {
-      logEvent(getAnalytics(), name, params);
-    } catch (error) {
-      swallow('trackEvent')(error);
-    }
-  },
-
+const service: CrashService = {
   breadcrumb(message) {
     trace('breadcrumb', message);
     crashlyticsLog(getCrashlytics(), message);
@@ -73,8 +40,7 @@ const service: TelemetryService = {
   },
 
   identifyUser(uid) {
-    trace('identify', uid);
-    setAnalyticsUserId(getAnalytics(), uid).catch(swallow('identifyUser (analytics)'));
+    trace('identify (crashlytics)', uid);
     setCrashlyticsUserId(getCrashlytics(), uid ?? '').catch(swallow('identifyUser (crashlytics)'));
   },
 
@@ -87,7 +53,6 @@ const service: TelemetryService = {
     };
   },
 
-  getAppInstanceId: () => getAppInstanceId(getAnalytics()),
   didCrashOnPreviousExecution: () => didCrashOnPreviousExecution(getCrashlytics()),
   isCollectionEnabled: () => getCrashlytics().isCrashlyticsCollectionEnabled,
   setCollectionEnabled: async enabled => {
@@ -97,16 +62,13 @@ const service: TelemetryService = {
 };
 
 /**
- * Builds the service and applies the environment's collection flags.
+ * Builds the service and applies the environment's collection flag.
  *
  * This is a factory rather than a module-level constant deliberately: the
  * composition root imports both this file and the mock, so any Firebase call at
  * module scope would fire even when the mock is selected.
  */
-export function createFirebaseTelemetryService(): TelemetryService {
-  setAnalyticsCollectionEnabled(getAnalytics(), flags.analyticsEnabled).catch(
-    swallow('setAnalyticsCollectionEnabled'),
-  );
+export function createFirebaseCrashService(): CrashService {
   setCrashlyticsCollectionEnabled(getCrashlytics(), flags.crashlyticsEnabled).catch(
     swallow('setCrashlyticsCollectionEnabled'),
   );

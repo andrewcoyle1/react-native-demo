@@ -11,7 +11,7 @@ import type { PropsWithChildren } from 'react';
 import type { AuthService, AuthUser } from './services/auth-service';
 import { firebaseAuthService } from './services/firebase-auth-service';
 
-import { breadcrumb, identifyUser } from '@/services/telemetry';
+import { breadcrumb, identifyUser, setUserProperties } from '@/services/telemetry';
 
 type AuthContextValue = {
   /** The signed-in user, or null when signed out. */
@@ -43,6 +43,20 @@ export function AuthProvider({ children, service = firebaseAuthService }: AuthPr
       setUser(nextUser);
       setInitializing(false);
       identifyUser(nextUser?.uid ?? null);
+      if (nextUser) {
+        /*
+         * After `identifyUser`, never before: profile attributes set against an
+         * anonymous id may not survive the merge onto the athlete.
+         *
+         * Deliberately not the email address — it identifies a person, and the
+         * question analytics answers ("do Apple sign-ins retain better?") is
+         * answered by the provider alone.
+         */
+        setUserProperties({
+          auth_provider: nextUser.providers[0] ?? 'unknown',
+          email_verified: nextUser.emailVerified,
+        });
+      }
       breadcrumb(nextUser ? `auth: signed in (${nextUser.uid})` : 'auth: signed out');
     });
   }, [service]);

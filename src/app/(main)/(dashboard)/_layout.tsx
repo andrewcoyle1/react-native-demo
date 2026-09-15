@@ -15,12 +15,13 @@ import { useMemo } from 'react';
 
 import { addDays, toDateKey } from '@/domain/training';
 import { SessionsProvider } from '@/providers/sessions-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 /** Today plus six: the seven days the dashboard lists. */
 const DaysAhead = 6;
 
 export default function DashboardStackLayout() {
+  const services = useServices();
   // Recomputed only when this layout remounts, which is enough: the day headings
   // derive their own labels, so a session does not move when midnight passes.
   const window = useMemo(() => {

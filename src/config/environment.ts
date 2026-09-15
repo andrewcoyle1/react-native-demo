@@ -41,9 +41,57 @@ export const isApi = environment === 'api';
  */
 export const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+/**
+ * The Mixpanel project token for this environment, or `null` to send nothing.
+ *
+ * `prod` and `dev` are separate Mixpanel projects so real numbers are never
+ * contaminated by development traffic. `api` shares the `dev` project: it is a
+ * development environment that happens to point at the custom backend, and it
+ * disappears entirely once that backend replaces Firebase for `dev` and `prod`.
+ *
+ * Written as a literal `switch` on purpose. Metro inlines `EXPO_PUBLIC_*` by
+ * substituting the exact source text, so a computed lookup
+ * (`process.env[`EXPO_PUBLIC_MIXPANEL_${environment}`]`) is never substituted
+ * and reads as `undefined` at runtime.
+ */
+export const mixpanelToken: string | null = (() => {
+  switch (environment) {
+    case 'prod':
+      return process.env.EXPO_PUBLIC_MIXPANEL_TOKEN_PROD ?? null;
+    case 'dev':
+    case 'api':
+      return process.env.EXPO_PUBLIC_MIXPANEL_TOKEN_DEV ?? null;
+    case 'mock':
+      return null;
+  }
+})();
+
+/**
+ * The Mixpanel ingestion host, which must match the project's data residency
+ * region.
+ *
+ * This is not a nicety. A project created in the EU or India region silently
+ * discards anything posted to the US host: the API answers `1` either way, the
+ * SDK treats that as accepted and drops the batch, and the data simply never
+ * appears. Mixpanel's ingestion does not validate tokens at all — an invented
+ * token is answered `1` too — so a successful response proves only that the
+ * request was well formed, never that it reached a project.
+ *
+ * Set `EXPO_PUBLIC_MIXPANEL_REGION` to `eu` or `in` to match the project;
+ * anything else, including unset, stays on the US host.
+ */
+export const mixpanelServerUrl: string = (() => {
+  switch (process.env.EXPO_PUBLIC_MIXPANEL_REGION) {
+    case 'eu':
+      return 'https://api-eu.mixpanel.com';
+    case 'in':
+      return 'https://api-in.mixpanel.com';
+    default:
+      return 'https://api.mixpanel.com';
+  }
+})();
+
 export const flags = {
-  /** Analytics events are only collected in production. */
-  analyticsEnabled: environment === 'prod',
   /** Crash reports are only collected in production. */
   crashlyticsEnabled: environment === 'prod',
   /** Echo telemetry calls to the console so you can see them without sending them. */

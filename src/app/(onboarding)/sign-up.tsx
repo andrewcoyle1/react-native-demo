@@ -10,7 +10,7 @@
  * only way back, and the space below the provider buttons is one long void.
  */
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth-button';
 import { AuthTextField } from '@/components/auth-field';
@@ -39,10 +39,22 @@ export default function SignUpScreen() {
 
     try {
       await signUp(email.trim(), password);
+      /*
+       * After `signUp` resolves, so `identify()` has already run from the auth
+       * observer and this is attributed to the athlete rather than to the
+       * anonymous device.
+       *
+       * `auth_action_succeeded` stays alongside it: it spans signIn/signUp/
+       * signOut and is what the existing funnels are built on. This is the
+       * named, single-meaning event the tracking plan is anchored to.
+       */
+      trackEvent('sign_up_completed', { sign_up_method: 'email', platform: Platform.OS });
       trackEvent('auth_action_succeeded', { action: 'signUp' });
     } catch (caught) {
       const failure =
-        caught instanceof AuthError ? caught : new AuthError('auth/unknown', 'Something went wrong.');
+        caught instanceof AuthError
+          ? caught
+          : new AuthError('auth/unknown', 'Something went wrong.');
       setError(failure.message);
       reportError(caught, 'auth: signUp');
       trackEvent('auth_action_failed', { action: 'signUp', code: failure.code });

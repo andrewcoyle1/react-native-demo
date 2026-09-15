@@ -9,6 +9,8 @@
  */
 import {
   collection,
+  doc,
+  getDoc,
   getDocs,
   getFirestore,
   limit,
@@ -22,12 +24,16 @@ import {
 
 import type {
   ActivitiesService,
+  ActivityLink,
   ActivityModel,
+  ActivityReview,
   ActivityStats,
+  LapModel,
   RoutePointModel,
+  StreamSample,
 } from './activities-service';
 
-import { ACTIVITY_SOURCES, DISCIPLINES, fromDateKey } from '@/domain/training';
+import { ACTIVITY_PROVIDERS, ACTIVITY_SOURCES, DISCIPLINES, fromDateKey } from '@/domain/training';
 import {
   readArray,
   readDate,
@@ -66,7 +72,58 @@ function toStats(data: RawData): ActivityStats {
     paceSecondsPerKm: readNumber(data?.paceSecondsPerKm),
     averageHeartRate: readNumber(data?.averageHeartRate),
     calories: readNumber(data?.calories),
+    elevationMetres: readNumber(data?.elevationMetres),
+    averageCadence: readNumber(data?.averageCadence),
   };
+}
+
+/**
+ * A lap is dropped unless it has both a distance and a duration: the chart
+ * plots pace, and a lap missing either has no pace to plot.
+ */
+function toLap(data: RawData): LapModel | null {
+  const index = readNumber(data?.index);
+  const distanceMetres = readNumber(data?.distanceMetres);
+  const durationSeconds = readNumber(data?.durationSeconds);
+
+  if (index === undefined || !distanceMetres || durationSeconds === undefined) {
+    return null;
+  }
+
+  return {
+    index,
+    distanceMetres,
+    durationSeconds,
+    // Derived rather than read: a stored pace that disagrees with the distance
+    // and duration beside it would draw a bar that contradicts its own label.
+    paceSecondsPerKm: Math.round((durationSeconds / distanceMetres) * 1000),
+  };
+}
+
+/** Every measure is optional; only the position along the route is required. */
+function toSample(data: RawData): StreamSample | null {
+  const atMetres = readNumber(data?.atMetres);
+  if (atMetres === undefined) {
+    return null;
+  }
+
+  return {
+    atMetres,
+    paceSecondsPerKm: readNumber(data?.paceSecondsPerKm),
+    heartRate: readNumber(data?.heartRate),
+    cadence: readNumber(data?.cadence),
+  };
+}
+
+function toReview(data: RawData): ActivityReview | null {
+  const rpe = readNumber(data?.rpe);
+  return rpe === undefined ? null : { rpe, note: readString(data?.note) ?? null };
+}
+
+function toLink(data: RawData): ActivityLink | null {
+  const provider = readEnum(data?.provider, ACTIVITY_PROVIDERS);
+  const url = readString(data?.url);
+  return provider === undefined || url === undefined ? null : { provider, url };
 }
 
 function toActivityModel(id: string, data: RawData): ActivityModel | null {
@@ -90,6 +147,15 @@ function toActivityModel(id: string, data: RawData): ActivityModel | null {
     sources: readEnumArray(data?.sources, ACTIVITY_SOURCES),
     stats: toStats(readMap(data?.stats)),
     sessionId: readString(data?.sessionId) ?? null,
+    /*
+     * Present on a document read one at a time, absent from a listed one only
+     * because the writer leaves them off there. Reading them unconditionally
+     * costs nothing when the fields are missing and keeps one converter.
+     */
+    laps: readArray(data?.laps, toLap),
+    samples: readArray(data?.samples, toSample),
+    review: toReview(readMap(data?.review)),
+    links: readArray(data?.links, toLink),
   };
 }
 
@@ -99,6 +165,11 @@ function decodeCursor(cursor: string): Timestamp {
 }
 
 export const firebaseActivitiesService: ActivitiesService = {
+  async get(uid, activityId) {
+    const snapshot = await getDoc(doc(activitiesCollection(uid), activityId));
+    return snapshot.exists() ? toActivityModel(snapshot.id, snapshot.data()) : null;
+  },
+
   subscribe(uid, onActivities, onError) {
     const liveQuery = query(
       activitiesCollection(uid),

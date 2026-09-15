@@ -44,6 +44,25 @@ export function readWindow(userId: string, from: string, to: string): Promise<Se
 }
 
 /**
+ * One session by id, for the detail sheet.
+ *
+ * The sheet opens above the window the app happens to be reading, so it cannot
+ * find the session in state it already holds — it asks for the one it is
+ * showing.
+ */
+export async function readOne(userId: string, sessionId: string): Promise<SessionDTO> {
+  const session = await q.findOne(userId, sessionId, pool);
+
+  if (!session) {
+    // Someone else's session and a session that does not exist are the same
+    // answer: there is no way to probe for one from here.
+    throw notFound('session_not_found', 'No session with that id.');
+  }
+
+  return session;
+}
+
+/**
  * Marks a session complete, or clears it.
  *
  * `completedAt` is never taken from the caller — the column is set to `now()`

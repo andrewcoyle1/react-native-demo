@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -32,12 +33,15 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { useApplyAnalyticsConsent } from '@/hooks/use-analytics-consent';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { DevicePreferencesProvider } from '@/providers/device-preferences';
 import { NotesProvider } from '@/providers/notes-provider';
 import { SettingsProvider } from '@/providers/settings-provider';
 import { UserProvider, useUser } from '@/providers/user-provider';
-import { services } from '@/services/container';
+import { ServicesProvider, useServices } from '@/providers/services-provider';
+import { SetupIntentProvider, useSetupIntent } from '@/providers/setup-intent-provider';
+import { createServices } from '@/services/container';
 
 // Runs once on import, before any component renders. Keeps the native splash on
 // screen instead of letting it disappear the instant the app launches.
@@ -46,30 +50,61 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
+  /*
+   * The one place the container is built.
+   *
+   * `useMemo` with no dependencies rather than a module constant: building it
+   * here is what makes the environment an argument instead of something fixed
+   * when the first import ran. Note for development — because it is memoised on
+   * mount, editing `container.ts` needs a full reload, not Fast Refresh.
+   */
+  const services = useMemo(() => createServices(), []);
+
   return (
     /* Required by react-native-gesture-handler v2 for any GestureDetector below
        it — the Plan tab's week swipe is the first of them. */
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {/* Outside AuthProvider on purpose: these belong to the install, not to
-            the athlete, so signing out must not reset them. */}
-        <DevicePreferencesProvider>
-          <AuthProvider service={services.auth}>
-            {/* Below AuthProvider: both read the signed-in uid from it. */}
-            <UserProvider service={services.user}>
-              {/* Above the navigator rather than inside `(main)`: the profile's
-                  settings modals are root-level routes, so a provider mounted
-                  below this point would not reach them. */}
-              <SettingsProvider service={services.settings}>
-                <NotesProvider service={services.notes}>
-                  <RootNavigator />
-                </NotesProvider>
-              </SettingsProvider>
-            </UserProvider>
-          </AuthProvider>
-        </DevicePreferencesProvider>
+        <ServicesProvider services={services}>
+          {/* Outside AuthProvider on purpose: these belong to the install, not
+              to the athlete, so signing out must not reset them. */}
+          <DevicePreferencesProvider>
+            <AppProviders />
+          </DevicePreferencesProvider>
+        </ServicesProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * The account-scoped providers.
+ *
+ * Split from `RootLayout` only because a component cannot read a context it
+ * renders itself — the services have to come from above this point.
+ */
+function AppProviders() {
+  const services = useServices();
+
+  return (
+    <AuthProvider service={services.auth}>
+      {/* Below AuthProvider: both read the signed-in uid from it. */}
+      <UserProvider service={services.user}>
+        {/* Above the navigator rather than inside `(main)`: the profile's
+            settings modals are root-level routes, so a provider mounted below
+            this point would not reach them. */}
+        <SettingsProvider service={services.settings}>
+          <NotesProvider service={services.notes}>
+            {/* Above the navigator because the gate below reads it: an athlete
+                adding a second plan is, to the gate, a fully onboarded athlete
+                who belongs in the tabs. */}
+            <SetupIntentProvider>
+              <RootNavigator />
+            </SetupIntentProvider>
+          </NotesProvider>
+        </SettingsProvider>
+      </UserProvider>
+    </AuthProvider>
   );
 }
 
@@ -81,6 +116,13 @@ export default function RootLayout() {
 function RootNavigator() {
   const { user, initializing } = useAuth();
   const { state: profile } = useUser();
+  const { addingPlan } = useSetupIntent();
+
+  /*
+   * Applied here rather than inside `(main)`: signing out has to turn tracking
+   * off too, and `(main)` is unmounted by then.
+   */
+  useApplyAnalyticsConsent();
 
   /*
    * Render nothing until both auth *and*, for a signed-in user, the profile
@@ -159,17 +201,19 @@ function RootNavigator() {
             }}
           />
 
-          {/* The profile's settings modals, as one group. Registered here
-              rather than inside the Profile tab so they cover the floating tab
-              bar; `app/settings/_layout.tsx` says more about why. */}
+          {/* The workout detail sheet. A form sheet like `sheet` below, but
+              taller and dismissible by drag alone — it is a place to read
+              rather than a notice to acknowledge, so it carries no header and
+              no confirm button. Registered here rather than inside `(main)`
+              so it covers the floating tab bar; `session/_layout.tsx` says
+              more. */}
           <Stack.Screen
-            name="settings"
+            name="session"
             options={{
-              /* `none` for the same reason as `modal` above. */
-              presentation: 'transparentModal',
-              animation: 'none',
+              presentation: 'formSheet',
               headerShown: false,
-              contentStyle: { backgroundColor: 'transparent' },
+              sheetAllowedDetents: [0.96],
+              sheetGrabberVisible: true,
             }}
           />
 
@@ -192,11 +236,45 @@ function RootNavigator() {
           />
         </Stack.Protected>
 
+        {/* The profile's settings modals, as one group. Registered here
+            rather than inside the Profile tab so they cover the floating tab
+            bar; `app/settings/_layout.tsx` says more about why.
+
+            Guarded on the athlete being signed in and nothing more — NOT on
+            `!needsSetup`, which is where this used to sit and which made the
+            app unusable for anyone new. `settings/analytics` is the consent
+            prompt, and `(setup)/_layout` raises it on mount by design. A
+            screen behind a false guard is not removed in expo-router 58, it
+            renders as a redirect to `redirectTo` — so during setup the prompt
+            pushed a route that bounced straight back to `/race-or-not`, the
+            setup layout remounted, raised the prompt again, and pushed
+            `/race-or-not` on top of itself without end.
+
+            Anything under `settings` is reached only by an explicit push, so
+            widening the guard opens nothing the athlete can stumble into. */}
+        <Stack.Protected guard={!!user} redirectTo={landing}>
+          <Stack.Screen
+            name="settings"
+            options={{
+              /* `none` for the same reason as `modal` above. */
+              presentation: 'transparentModal',
+              animation: 'none',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+        </Stack.Protected>
+
         {/* A signed-up athlete with no profile yet — the personalisation flow,
             from "Do you have a race in mind?" through the plan overview. Its
             own screen order and progress bar are `(setup)`'s concern; this
             gate only decides whether the athlete can reach it at all. */}
-        <Stack.Protected guard={needsSetup} redirectTo={landing}>
+        {/* Reachable for two different reasons: an athlete who has no profile
+            yet and must go through it, and an established athlete who chose to
+            add another plan. The second keeps `(main)` mounted alongside — its
+            own guard is still true — so the flow pushes over the tabs and
+            backing out of it returns to the Dashboard. */}
+        <Stack.Protected guard={needsSetup || addingPlan} redirectTo={landing}>
           <Stack.Screen name="(setup)" options={{ animationTypeForReplace: 'push' }} />
         </Stack.Protected>
 

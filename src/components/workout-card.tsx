@@ -12,26 +12,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Chip, type ChipProps } from './chip';
 import { CoachNote } from './coach-note';
-import { IntervalChart, type IntervalSegment } from './interval-chart';
+import { IntervalChart, type IntervalBand, type IntervalSegment } from './interval-chart';
+import { MetricGrid, type WorkoutMetric } from './metric-grid';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Accents, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type WorkoutMetric = {
-  label: string;
-  value: string;
-  /** Rendered smaller and beside the value — "min", "/100m". */
-  unit?: string;
-  /**
-   * A second value/unit pair on the same line, for quantities that need two:
-   * "1 hr 8 min". Omitted for the ordinary single-unit case.
-   */
-  extra?: { value: string; unit?: string };
-  icon: SFSymbol;
-  accent: string;
-};
+/* Re-exported so the 19 call sites that import it from here keep working; the
+   grid itself now lives beside the detail sheet's copy of it. */
+export type { WorkoutMetric };
 
 type WorkoutCardProps = {
   title: string;
@@ -45,12 +36,16 @@ type WorkoutCardProps = {
   tags?: ChipProps[];
   metrics?: WorkoutMetric[];
   segments?: IntervalSegment[];
+  /** Labelled spans over the chart — a swim's warm-up/drill/main structure. */
+  bands?: IntervalBand[];
   totalMinutes?: number;
   /** Axis label spacing, in minutes. Longer sessions want a coarser axis. */
   tickEvery?: number;
   coach?: string;
   note?: string;
   onMenuPress?: () => void;
+  /** Opens the session's detail sheet. Omit for a card that leads nowhere. */
+  onPress?: () => void;
 };
 
 export function WorkoutCard({
@@ -61,15 +56,17 @@ export function WorkoutCard({
   tags = [],
   metrics = [],
   segments = [],
+  bands = [],
   totalMinutes = 0,
   tickEvery,
   coach,
   note,
   onMenuPress,
+  onPress,
 }: WorkoutCardProps) {
   const theme = useTheme();
 
-  return (
+  const card = (
     <ThemedView
       type="backgroundElement"
       style={[styles.card, { borderColor: theme.backgroundSelected }]}>
@@ -112,45 +109,12 @@ export function WorkoutCard({
         </View>
       ) : null}
 
-      {metrics.length > 0 ? (
-        <View style={styles.metrics}>
-          {metrics.map(metric => (
-            <View key={metric.label} style={styles.metric}>
-              <View style={[styles.metricIcon, { borderColor: metric.accent }]}>
-                <Icon name={metric.icon} size={20} tintColor={metric.accent} />
-              </View>
-
-              <View style={styles.metricText}>
-                <ThemedText themeColor="textSecondary" style={styles.metricLabel}>
-                  {metric.label.toUpperCase()}
-                </ThemedText>
-                {/* Value and unit share a line via nesting, so the unit stays
-                    put when the value's width changes. */}
-                <ThemedText style={styles.metricValue}>
-                  {metric.value}
-                  {metric.unit ? (
-                    <ThemedText themeColor="textSecondary" style={styles.metricUnit}>
-                      {' '}
-                      {metric.unit.toUpperCase()}
-                    </ThemedText>
-                  ) : null}
-                  {metric.extra ? ` ${metric.extra.value}` : null}
-                  {metric.extra?.unit ? (
-                    <ThemedText themeColor="textSecondary" style={styles.metricUnit}>
-                      {' '}
-                      {metric.extra.unit.toUpperCase()}
-                    </ThemedText>
-                  ) : null}
-                </ThemedText>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
+      {metrics.length > 0 ? <MetricGrid metrics={metrics} /> : null}
 
       {segments.length > 0 ? (
         <IntervalChart
           segments={segments}
+          bands={bands}
           totalMinutes={totalMinutes}
           tickEvery={tickEvery}
           style={styles.chart}
@@ -159,6 +123,27 @@ export function WorkoutCard({
 
       {coach && note ? <CoachNote coach={coach} note={note} /> : null}
     </ThemedView>
+  );
+
+  if (!onPress) {
+    return card;
+  }
+
+  /*
+   * The whole card is the target, not a chevron in the corner: the card *is*
+   * the session, and the design gives it no other affordance. The coach note
+   * and the overflow button inside keep their own presses — a nested Pressable
+   * takes the touch before the one wrapping it does.
+   */
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint="Opens the session"
+      style={({ pressed }) => pressed && styles.cardPressed}>
+      {card}
+    </Pressable>
   );
 }
 
@@ -195,48 +180,16 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.5,
   },
+  /* Lighter than the overflow button's own feedback: the whole card dimming
+     as hard as a single glyph reads as the screen flashing. */
+  cardPressed: {
+    opacity: 0.8,
+  },
   tags: {
     flexDirection: 'row',
     /* Wraps to a second line the way the design does once the kit list grows. */
     flexWrap: 'wrap',
     gap: Spacing.two,
-  },
-  metrics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: Spacing.three,
-  },
-  metric: {
-    /* Two per row. A fixed 50% rather than `flex: 1` so a wrapped third tile
-       lines up under the first instead of stretching to fill the row. */
-    width: '50%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  metricIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricText: {
-    flexShrink: 1,
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: 0.6,
-  },
-  metricValue: {
-    fontSize: 20,
-    fontWeight: 600,
-  },
-  metricUnit: {
-    fontSize: 12,
-    fontWeight: 600,
   },
   chart: {
     marginTop: Spacing.one,

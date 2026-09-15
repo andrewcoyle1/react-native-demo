@@ -16,6 +16,7 @@ import type {
   TrainingService,
 } from './training-service';
 
+import { addDays, toDateKey, type DateKey } from '@/domain/training';
 import { MOCK_EMPTY_UID } from '@/providers/shared/mock-accounts';
 
 const SettleMs = 150;
@@ -155,6 +156,45 @@ export const mockTrainingService: TrainingService = {
       schedules.set(uid, { ...existing, ...changes, modifiedAt: new Date() });
     });
     scheduleListeners.forEach(listener => {
+      if (listener.uid === uid) {
+        listener.deliver();
+      }
+    });
+  },
+
+  async createPlan(uid, race) {
+    await settle(() => {
+      const existing = plans.get(uid) ?? [];
+      const current = existing.filter(plan => plan.status !== 'complete');
+
+      /* Behind everything already queued, matching the server: two plans that
+         both start tomorrow would claim the same weeks. */
+      const lastEnd = current.reduce<DateKey | null>(
+        (latest, plan) => (latest === null || plan.endDate > latest ? plan.endDate : latest),
+        null,
+      );
+      const startDate = lastEnd ? addDays(lastEnd, 1) : toDateKey(new Date());
+
+      plans.set(uid, [
+        ...existing,
+        {
+          id: `plan-${existing.length + 1}`,
+          name: 'Prep Plan',
+          status: current.some(plan => plan.status === 'current') ? 'upcoming' : 'current',
+          phase: 'Base Phase',
+          startDate,
+          endDate: addDays(startDate, 12 * 7 - 1),
+          weeks: 12,
+          weeklyPlannedHours: Array<number>(12).fill(6),
+          currentWeekIndex: null,
+          currentWeekProgress: null,
+          raceId: race ? 'race-added' : null,
+          artworkUrl: null,
+        },
+      ]);
+    });
+
+    planListeners.forEach(listener => {
       if (listener.uid === uid) {
         listener.deliver();
       }

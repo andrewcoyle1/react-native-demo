@@ -13,16 +13,13 @@ import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { firebaseSessionsService } from './services/firebase-sessions-service';
-import type {
-  SessionCompletion,
-  SessionModel,
-  SessionsService,
-} from './services/sessions-service';
+import type { SessionCompletion, SessionModel, SessionsService } from './services/sessions-service';
 
 import type { DateKey, DateRange } from '@/domain/training';
 import { useAuth } from '@/providers/auth-provider';
 import type { Subscribe } from '@/providers/shared/remote-state';
 import { useSyncedSubscription, type SyncState } from '@/providers/shared/sync-state';
+import { trackEvent } from '@/services/telemetry';
 
 type SessionsContextValue = {
   state: SyncState<SessionModel[]>;
@@ -90,10 +87,7 @@ export function SessionsProvider({
   // `remote` is null only with no uid, which cannot happen inside `(main)`.
   // Memoised rather than defaulted inline, so `byDate` is not rebuilt every
   // render by a fresh fallback object.
-  const state = useMemo<SyncState<SessionModel[]>>(
-    () => remote ?? { status: 'loading' },
-    [remote],
-  );
+  const state = useMemo<SyncState<SessionModel[]>>(() => remote ?? { status: 'loading' }, [remote]);
 
   const byDate = useMemo(() => {
     const grouped = new Map<DateKey, SessionModel[]>();
@@ -113,11 +107,41 @@ export function SessionsProvider({
 
   const markComplete = useCallback(
     async (sessionId: string, completion: SessionCompletion | null) => {
-      if (uid) {
-        await service.markComplete(uid, sessionId, completion);
+      if (!uid) {
+        return;
       }
+      await service.markComplete(uid, sessionId, completion);
+
+      /*
+       * The Value Moment: finishing a session is the thing the whole plan
+       * exists to produce.
+       *
+       * Tracked here rather than in a screen because this is the action —
+       * every route to completing a session goes through this call, so none of
+       * them can forget to report it, and un-completing (a `null` completion)
+       * is correctly not an occurrence of it.
+       *
+       * The session's own shape is read from state rather than passed in: the
+       * caller has a session id, and the discipline is what makes the event
+       * answerable ("are swims being skipped?").
+       */
+      if (completion === null) {
+        return;
+      }
+      const session =
+        state.status === 'ready' ? state.data.find(s => s.id === sessionId) : undefined;
+      trackEvent('session_completed', {
+        discipline: session?.discipline,
+        purpose: session?.purpose,
+        duration_minutes:
+          session?.targets.durationSeconds == null
+            ? undefined
+            : Math.round(session.targets.durationSeconds / 60),
+        // Whether it was matched to a recorded activity, rather than ticked by hand.
+        matched_to_activity: completion.activityId !== null,
+      });
     },
-    [uid, service],
+    [uid, service, state],
   );
 
   const value = useMemo<SessionsContextValue>(

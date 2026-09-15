@@ -15,11 +15,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Accents, ActivePlanAccent, Spacing, Zones } from '@/constants/theme';
 import type { UnitSystem } from '@/domain/training';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
-import {
-  formatRaceDate,
-  formatRaceTarget,
-  toRaceTargets,
-} from '@/presenters/plan-presenter';
+import { useAnalyticsConsent } from '@/hooks/use-analytics-consent';
+import { formatRaceDate, formatRaceTarget, toRaceTargets } from '@/presenters/plan-presenter';
 import { AuthError, useAuth } from '@/providers/auth-provider';
 import { useDevicePreferences } from '@/providers/device-preferences';
 import { useSettings, type PoolSize } from '@/providers/settings-provider';
@@ -34,11 +31,41 @@ type Social = { id: string; icon: SFSymbol; gradient: string; label: string; url
  * available glyph. Swap for real artwork when the brand assets land.
  */
 const SOCIALS: Social[] = [
-  { id: 'web', icon: 'globe', gradient: 'linear-gradient(140deg, #2E5C8A, #1D3A57)', label: 'Website', url: 'https://example.com' },
-  { id: 'instagram', icon: 'camera', gradient: 'linear-gradient(140deg, #F9CE34, #EE2A7B 55%, #6228D7)', label: 'Instagram', url: 'https://instagram.com' },
-  { id: 'tiktok', icon: 'music.note', gradient: 'linear-gradient(140deg, #25F4EE, #111111 55%, #FE2C55)', label: 'TikTok', url: 'https://tiktok.com' },
-  { id: 'youtube', icon: 'play.rectangle', gradient: 'linear-gradient(140deg, #FF4E45, #C4302B)', label: 'YouTube', url: 'https://youtube.com' },
-  { id: 'strava', icon: 'bolt', gradient: 'linear-gradient(140deg, #FC5200, #8A2F00)', label: 'Strava', url: 'https://strava.com' },
+  {
+    id: 'web',
+    icon: 'globe',
+    gradient: 'linear-gradient(140deg, #2E5C8A, #1D3A57)',
+    label: 'Website',
+    url: 'https://example.com',
+  },
+  {
+    id: 'instagram',
+    icon: 'camera',
+    gradient: 'linear-gradient(140deg, #F9CE34, #EE2A7B 55%, #6228D7)',
+    label: 'Instagram',
+    url: 'https://instagram.com',
+  },
+  {
+    id: 'tiktok',
+    icon: 'music.note',
+    gradient: 'linear-gradient(140deg, #25F4EE, #111111 55%, #FE2C55)',
+    label: 'TikTok',
+    url: 'https://tiktok.com',
+  },
+  {
+    id: 'youtube',
+    icon: 'play.rectangle',
+    gradient: 'linear-gradient(140deg, #FF4E45, #C4302B)',
+    label: 'YouTube',
+    url: 'https://youtube.com',
+  },
+  {
+    id: 'strava',
+    icon: 'bolt',
+    gradient: 'linear-gradient(140deg, #FC5200, #8A2F00)',
+    label: 'Strava',
+    url: 'https://strava.com',
+  },
 ];
 
 /** "andrew.coyle99@example.com" -> "Andrew Coyle". Until a profile document exists. */
@@ -123,6 +150,9 @@ export default function ProfileScreen() {
 
   const { user, signOut, deleteAccount } = useAuth();
   const { alternateUi, setAlternateUi, ready: preferencesReady } = useDevicePreferences();
+  // The signed-in athlete's own answer, not whatever the last one on this
+  // handset chose.
+  const { consent: analyticsConsent } = useAnalyticsConsent();
   const { state } = useUser();
   const { races, resetPlans } = useTraining();
   const { state: settings } = useSettings();
@@ -286,10 +316,7 @@ export default function ProfileScreen() {
           metrics: [
             {
               label: 'Heart Rate Range',
-              value: formatHeartRate(
-                metrics?.heartRateMin ?? null,
-                metrics?.heartRateMax ?? null,
-              ),
+              value: formatHeartRate(metrics?.heartRateMin ?? null, metrics?.heartRateMax ?? null),
               href: '/settings/heart-rate',
             },
             {
@@ -355,9 +382,7 @@ export default function ProfileScreen() {
               href: '/settings/redeem-code',
             },
           ],
-          notifications: [
-            { label: 'Push Notifications', value: 'Enabled', emphasis: true },
-          ],
+          notifications: [{ label: 'Push Notifications', value: 'Enabled', emphasis: true }],
           alternateUi,
           onAlternateUiChange: setAlternateUi,
           signOutPending: pending,
@@ -421,9 +446,11 @@ export default function ProfileScreen() {
           icon="bicycle"
           iconAccent={Zones.ride}
           title="Cycling Threshold Power (FTP)"
-          subtitle={metrics?.cyclingFtp !== null && metrics?.cyclingFtp !== undefined
-            ? `${metrics.cyclingFtp} W`
-            : 'Not set'}
+          subtitle={
+            metrics?.cyclingFtp !== null && metrics?.cyclingFtp !== undefined
+              ? `${metrics.cyclingFtp} W`
+              : 'Not set'
+          }
           onPress={() => router.push('/settings/cycling-ftp')}
         />
         <SettingsRow
@@ -456,6 +483,13 @@ export default function ProfileScreen() {
           title="Availability"
           subtitle="Change your preferred training days"
           onPress={() => router.push('/settings/availability')}
+        />
+        <SettingsRow
+          icon="chart.bar"
+          iconAccent={Accents.info}
+          title="Analytics"
+          subtitle={analyticsConsent === 'granted' ? 'Allowed' : 'Not allowed'}
+          onPress={() => router.push('/settings/analytics')}
         />
       </SettingsGroup>
 
@@ -553,7 +587,7 @@ export default function ProfileScreen() {
           icon="wand.and.stars"
           iconAccent={Accents.commitment}
           title="Alternate UI"
-          subtitle="Dashboard and Profile rebuilt on gluestack-ui"
+          subtitle="Six screens rebuilt on gluestack-ui"
           toggle={{ value: alternateUi, onValueChange: setAlternateUi }}
         />
       </SettingsGroup>

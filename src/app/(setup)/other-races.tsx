@@ -6,7 +6,6 @@
  * real entry; they are not placeholders that become real rows. Adding one
  * for real replaces the button's label from "Skip for now" to "Next".
  */
-import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -15,7 +14,9 @@ import { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { useScreenTracking } from '@/hooks/use-screen-tracking';
 
-import { stepProgress } from './flow-order';
+import { pushNext, stepProgress } from './flow-order';
+
+import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 
 const ExampleRaces = [
   { day: 'SAT', date: '10', month: 'OCT', when: 'IN 4 WEEKS', name: 'e.g. Battersea Park parkrun', tag: 'C RACE · 5K RUN RACE' },
@@ -25,6 +26,7 @@ const ExampleRaces = [
 export default function OtherRacesScreen() {
   useScreenTracking('Other races');
   const theme = useTheme();
+  const { mode } = useOnboardingFlow();
   const [notice, setNotice] = useState<string | null>(null);
 
   // No B/C races have been added yet — "Add B/C race" has no form to open.
@@ -34,9 +36,9 @@ export default function OtherRacesScreen() {
     <OnboardingStep
       title="Any other races on the way?"
       subtitle="Add B/C races between now and your main race"
-      progress={stepProgress('other-races', true)}
+      progress={stepProgress('other-races', true, mode)}
       nextLabel={hasRaces ? 'Next' : 'Skip for now'}
-      onNext={() => router.push('/ability-swim')}>
+      onNext={() => pushNext('other-races', mode, true)}>
       <ThemedText themeColor="textSecondary" style={styles.empty}>
         No B/C races scheduled yet
       </ThemedText>

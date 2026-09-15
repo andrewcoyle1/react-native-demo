@@ -10,7 +10,7 @@ import type pg from 'pg';
 
 import { toMetricsDTO, type MetricsRow } from '../profile/queries.ts';
 
-import type { AthleteMetricsDTO, UserDTO } from '../domain.ts';
+import type { AthleteMetricsDTO, PlanDTO, UserDTO } from '../domain.ts';
 
 type Queryable = pg.PoolClient | pg.Pool;
 
@@ -123,18 +123,29 @@ export async function insertPlan(
     weeks: number;
     weeklyPlannedHours: number[];
     artworkUrl: string | null;
+    /** Defaults to the plan the athlete starts on. */
+    status?: PlanDTO['status'];
   },
   db: pg.PoolClient,
 ): Promise<string> {
+  const status = plan.status ?? 'current';
+  /*
+   * A queued plan has not reached its first week yet, and the column says so:
+   * `current_week_index` is documented as null before a plan is under way.
+   * Writing 0 would make an upcoming plan claim to be in its opening week.
+   */
+  const weekIndex = status === 'upcoming' ? null : 0;
+
   const { rows } = await db.query<{ id: string }>(
     `insert into plans (user_id, race_id, name, status, phase, start_date, end_date,
                         weeks, weekly_planned_hours, current_week_index, current_week_progress,
                         artwork_url)
-     values ($1, $2, $3, 'current', $4, $5, $6, $7, $8, 0, 0, $9)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      returning id`,
     [
-      userId, plan.raceId, plan.name, plan.phase, plan.startDate, plan.endDate,
-      plan.weeks, plan.weeklyPlannedHours, plan.artworkUrl,
+      userId, plan.raceId, plan.name, status, plan.phase, plan.startDate, plan.endDate,
+      plan.weeks, plan.weeklyPlannedHours, weekIndex, weekIndex === null ? null : 0,
+      plan.artworkUrl,
     ],
   );
   return rows[0]!.id;

@@ -86,6 +86,31 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
       profile.updateProfile(request.userId!, request.body as Partial<profile.ProfileDraft>),
   );
 
+  /*
+   * Consent, not a preference: `PUT` because the athlete's latest answer wholly
+   * replaces the previous one, and it is answered before a profile exists — so
+   * unlike everything else here it must not require one.
+   */
+  app.put(
+    '/v1/profile/consent',
+    {
+      preHandler: authenticate,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['analytics'],
+          additionalProperties: false,
+          properties: { analytics: { type: 'string', enum: ['granted', 'denied'] } },
+        },
+      },
+    },
+    async request =>
+      profile.recordAnalyticsConsent(
+        request.userId!,
+        (request.body as { analytics: 'granted' | 'denied' }).analytics,
+      ),
+  );
+
   app.get('/v1/profile/metrics', { preHandler: authenticate }, async request =>
     profile.readMetrics(request.userId!),
   );

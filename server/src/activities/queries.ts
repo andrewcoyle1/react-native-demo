@@ -118,6 +118,23 @@ export async function findPage(
   };
 }
 
+/** One activity by id, scoped to its owner. */
+export async function findOne(
+  userId: string,
+  activityId: string,
+  db: Queryable,
+): Promise<ActivityDTO | null> {
+  const { rows } = await db.query<ActivityRow>(
+    `select ${COLUMNS}
+       from activities a
+      where a.id = $1 and a.user_id = $2`,
+    [activityId, userId],
+  );
+
+  const row = rows[0];
+  return row ? toActivityDTO(row) : null;
+}
+
 /**
  * Activities within a span of days, newest first.
  *

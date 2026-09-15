@@ -17,13 +17,15 @@ import { useTheme } from '@/hooks/use-theme';
 import { useOnboardingFlow } from '@/providers/onboarding-flow-provider';
 
 import { stepProgress } from './flow-order';
+import { useCompleteSetupStep } from './use-step-tracking';
 
 const Filters = ['IRONMAN', 'T100', 'Challenge'] as const;
 
 export default function FindRaceScreen() {
   useScreenTracking('Find race');
   const theme = useTheme();
-  const { update } = useOnboardingFlow();
+  const { update, mode } = useOnboardingFlow();
+  const completeStep = useCompleteSetupStep();
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<(typeof Filters)[number] | null>(null);
@@ -39,13 +41,14 @@ export default function FindRaceScreen() {
 
   function choose(race: CatalogRace) {
     update({ raceId: race.id });
+    completeStep();
     router.push('/race-goal');
   }
 
   return (
     <OnboardingStep
       title="Find your middle distance race"
-      progress={stepProgress('find-race', true)}
+      progress={stepProgress('find-race', true, mode)}
       showNext={false}
       onNext={() => {}}>
       <TextInput
@@ -55,7 +58,11 @@ export default function FindRaceScreen() {
         placeholderTextColor={theme.textSecondary}
         style={[
           styles.search,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected, color: theme.text },
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: theme.backgroundSelected,
+            color: theme.text,
+          },
         ]}
       />
 
@@ -70,7 +77,8 @@ export default function FindRaceScreen() {
                 styles.filter,
                 { borderColor: active ? theme.text : theme.backgroundSelected },
               ]}>
-              <ThemedText style={[styles.filterText, { color: active ? theme.text : theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.filterText, { color: active ? theme.text : theme.textSecondary }]}>
                 {name}
               </ThemedText>
             </Pressable>
@@ -106,9 +114,10 @@ export default function FindRaceScreen() {
         ))}
 
         <Pressable
-          onPress={() =>
-            router.push({ pathname: '/race-goal' })
-          }
+          onPress={() => {
+            completeStep();
+            router.push({ pathname: '/race-goal' });
+          }}
           style={({ pressed }) => [
             styles.cantFind,
             { borderColor: theme.backgroundSelected },

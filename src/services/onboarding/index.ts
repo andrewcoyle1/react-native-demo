@@ -1,1 +1,1 @@
-export type { OnboardingDraft, OnboardingService } from './onboarding-service';
+export type { OnboardingDraft, OnboardingService, RaceDraft } from './onboarding-service';

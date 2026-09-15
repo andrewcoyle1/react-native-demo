@@ -12,9 +12,10 @@
 import { Stack } from 'expo-router';
 
 import { ActivitiesProvider } from '@/providers/activities-provider';
-import { services } from '@/services/container';
+import { useServices } from '@/providers/services-provider';
 
 export default function ActivitiesStackLayout() {
+  const services = useServices();
   return (
     <ActivitiesProvider service={services.activities}>
       <Stack screenOptions={{ headerShown: false }} />
