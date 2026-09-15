@@ -1,15 +1,19 @@
 /**
  * Plans, races and the schedule.
  *
- * Plans and races are read-only here on purpose: the backend authors them, so
- * this file exposes no way for a request to create or *change* one. `resetPlans`
- * is the sole exception, and deliberately a narrow one — it only ever empties
- * the collection for a fresh generation to fill, never edits or adds to it.
- * The schedule is the athlete's, and is the only thing that writes normally.
+ * A plan's *contents* are read-only here on purpose: the backend authors the
+ * weeks and the sessions, so this file exposes no way for a request to change
+ * one. What the athlete controls is which plans exist — `addPlan` queues
+ * another and `resetPlans` empties the collection. Even `addPlan` takes only a
+ * race: the plan is generated from that and the athlete's stored schedule, so
+ * a request still cannot dictate what a plan contains.
+ *
+ * Races are read-only. The schedule is the athlete's, and writes normally.
  */
-import type { CommitmentDTO, PlanDTO, RaceDTO, ScheduleDTO } from '../domain.ts';
+import type { CommitmentDTO, PlanDTO, RaceDTO, RaceDraftDTO, ScheduleDTO } from '../domain.ts';
 import { pool, transaction } from '../db.ts';
-import { notFound } from '../errors.ts';
+import { badRequest, notFound } from '../errors.ts';
+import { addDays, createPlan as generatePlan, nextMonday } from '../plans/generate.ts';
 import * as q from './queries.ts';
 
 /** Completed plans are excluded unless asked for: no screen shows one. */
@@ -23,6 +27,65 @@ const DEFAULT_STATUSES: PlanDTO['status'][] = ['current', 'upcoming'];
  */
 export function resetPlans(userId: string): Promise<void> {
   return q.deletePlans(userId, pool);
+}
+
+/**
+ * Adds a plan for an athlete who already has one.
+ *
+ * Queued rather than substituted: the plan under way runs to its end date and
+ * this one starts the day after. An athlete who has been training towards
+ * something for six weeks has not stopped wanting that when they add a race in
+ * the spring, and silently completing their current plan to make room would
+ * throw away the rest of it.
+ *
+ * Only the race crosses the wire. Hours, days and commitments are already
+ * stored against the athlete and editable in Settings, so this reads the
+ * schedule rather than taking one — which also means a plan can never be
+ * created against a schedule the athlete has not seen.
+ */
+export async function addPlan(userId: string, race: RaceDraftDTO | null): Promise<PlanDTO> {
+  return transaction(async db => {
+    const schedule = await q.findSchedule(userId, db);
+
+    if (!schedule) {
+      // Unreachable from the app — the flow is only offered to an athlete with
+      // a profile, and onboarding writes a schedule before it writes a plan.
+      throw badRequest('no_schedule', 'Set your weekly availability before adding a plan.');
+    }
+
+    const existing = await q.findPlans(userId, ['current', 'upcoming'], db);
+
+    /*
+     * Behind everything already queued, not just behind the current one: add
+     * two plans in a row and the second must follow the first, or they would
+     * both claim the same weeks.
+     */
+    const lastEnd = existing.reduce<string | null>(
+      (latest, plan) => (latest === null || plan.endDate > latest ? plan.endDate : latest),
+      null,
+    );
+
+    const startDate = lastEnd ? addDays(lastEnd, 1) : nextMonday(new Date());
+    const status: PlanDTO['status'] = existing.some(plan => plan.status === 'current')
+      ? 'upcoming'
+      : 'current';
+
+    const availableMinutes = schedule.availableMinutes;
+    const weeklyHours =
+      availableMinutes.reduce((total, minutes) => total + minutes, 0) / 60;
+
+    const planId = await generatePlan(
+      userId,
+      { race, startDate, status, availableMinutes, weeklyHours },
+      db,
+    );
+
+    const created = (await q.findPlans(userId, ['current', 'upcoming'], db)).find(
+      plan => plan.id === planId,
+    );
+
+    return created!;
+  });
 }
 
 export function readPlans(

@@ -335,6 +335,19 @@ export type OnboardingCompleteRequest = {
   weeklyHours: number;
 };
 
+/**
+ * Adds a plan for an athlete who already has a profile.
+ *
+ * Only the race or goal: everything else a plan needs — hours, days,
+ * commitments — is already stored against the athlete and editable in
+ * Settings, so asking for it again would be asking them to retype what the
+ * app knows. The server reads the schedule rather than taking one.
+ */
+export type CreatePlanRequest = {
+  /** The race this plan builds towards, or null for an open training goal. */
+  race: RaceDraftDTO | null;
+};
+
 /** A race as the client describes it before it has an id. */
 export type RaceDraftDTO = {
   name: string;
