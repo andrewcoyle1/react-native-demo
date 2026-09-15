@@ -140,7 +140,13 @@ export type AltDashboardModel = {
   days: AltDay[];
   /** A failed read, said plainly rather than left looking like a rest week. */
   error: string | null;
-  onOpenSheet: () => void;
+  /**
+   * Adds a plan. Still unwired: there is no plan-creation flow to open, and
+   * this used to point at the release notes.
+   */
+  onAddPlan: () => void;
+  /** Opens availability — which days may hold a workout, and what goes on them. */
+  onUpdateSchedule: () => void;
   onOpenPlan: () => void;
 };
 
@@ -161,7 +167,7 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
         <Box className="-mx-4">
           <AltCarousel
             accessibilityLabel="Your plans"
-            addPage={<AddPlanPage onPress={model.onOpenSheet} />}>
+            addPage={<AddPlanPage onPress={model.onAddPlan} />}>
             {model.plans.map(plan => (
               <PlanPage key={plan.id} plan={plan} />
             ))}
@@ -173,7 +179,7 @@ export function AltDashboardScreen({ model }: { model: AltDashboardModel }) {
           accent={Accents.schedule}
           title="Update Your Schedule"
           subtitle="Your days, commitments and B/C races"
-          onPress={model.onOpenSheet}
+          onPress={model.onUpdateSchedule}
         />
 
         {model.days.map(day => (

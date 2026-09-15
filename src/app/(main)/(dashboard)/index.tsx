@@ -200,7 +200,8 @@ function DashboardBody() {
             };
           }),
           error: state.status === 'error' ? state.message : null,
-          onOpenSheet: () => router.push('/sheet'),
+          onAddPlan: () => router.push('/sheet'),
+          onUpdateSchedule: () => router.push('/settings/availability'),
           onOpenPlan: () => router.push('/plan'),
         }}
       />
@@ -216,7 +217,6 @@ function DashboardBody() {
         <WorkoutCard
           {...toWorkoutCardProps(session, 'metric')}
           onPress={() => router.push(`/session/${session.id}`)}
-          onMenuPress={() => router.push('/sheet')}
         />
       )}
       ListHeaderComponent={
@@ -242,7 +242,6 @@ function DashboardBody() {
                   undefined,
                   plan.status === 'current' ? actualHoursThisWeek : undefined,
                 )}
-                onMenuPress={() => router.push('/sheet')}
                 style={styles.slide}
               />
             ))}
@@ -254,7 +253,7 @@ function DashboardBody() {
               subtitle="Your days, commitments and B/C races"
               icon="calendar"
               accent={Accents.schedule}
-              onPress={() => router.push('/sheet')}
+              onPress={() => router.push('/settings/availability')}
             />
           </ThemedView>
         </ThemedView>
